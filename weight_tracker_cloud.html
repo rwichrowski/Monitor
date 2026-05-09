@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor Wagi Cloud</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <script src="config.js"></script>
+
+    <script>
+        let auth, db;
+        let currentUser = null;
+        let weightEntries = [];
+        let chartInstance = null;
+        const appId = 'weight-tracker-cloud';
+
+        // Inicjalizacja Firebase
+        const initFirebase = async () => {
+            const statusText = document.getElementById('statusText');
+            const statusIcon = document.getElementById('statusIcon');
+
+            if (typeof firebaseConfig === 'undefined') {
+                statusText.innerText = "Brak pliku config.js!";
+                statusIcon.classList.add('text-red-500');
+                return;
+            }
+
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            db = firebase.firestore();
+
+            try {
+                // Logowanie anonimowe
+                const cred = await auth.signInAnonymously();
+                
+                auth.onAuthStateChanged((user) => {
+                    if (user) {
+                        currentUser = user;
+                        statusIcon.classList.add('text-green-500', 'animate-pulse');
+                        statusText.innerText = "Połączono z Firebase";
+                        startSync();
+                    }
+                });
+            } catch (error) {
+                console.error("Auth Error:", error);
+                statusText.innerText = "Błąd autoryzacji";
+            }
+        };
+
+        // Pobieranie danych w czasie rzeczywistym
+        const startSync = () => {
+            const path = db.collection('artifacts').doc(appId)
+                           .collection('users').doc(currentUser.uid)
+                           .collection('weights');
+            
+            path.onSnapshot((snapshot) => {
+                weightEntries = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                weightEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
+                updateUI();
+            }, (error) => {
+                console.error("Firestore error:", error);
+            });
+        };
+
+        // Dodawanie wpisu
+        window.addEntry = async () => {
+            const weightInput = document.getElementById('weightValue');
+            const dateInput = document.getElementById('weightDate');
+            const weight = parseFloat(weightInput.value);
+            const date = dateInput.value;
+
+            if (!currentUser || isNaN(weight) || !date) {
+                showToast("Wprowadź poprawne dane");
+                return;
+            }
+
+            try {
+                await db.collection('artifacts').doc(appId)
+                    .collection('users').doc(currentUser.uid)
+                    .collection('weights').doc(date).set({
+                        date,
+                        weight,
+                        timestamp: Date.now()
+                    });
+                weightInput.value = '';
+                showToast("Zapisano!");
+            } catch (e) {
+                showToast("Błąd zapisu");
+            }
+        };
+
+        // Usuwanie wpisu
+        window.deleteEntry = async (id) => {
+            if (!confirm(`Usunąć wpis z dnia ${id}?`)) return;
+            try {
+                await db.collection('artifacts').doc(appId)
+                    .collection('users').doc(currentUser.uid)
+                    .collection('weights').doc(id).delete();
+                showToast("Usunięto");
+            } catch (e) { showToast("Błąd usuwania"); }
+        };
+
+        function updateUI() {
+            renderTable();
+            renderChart();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function renderTable() {
+            const historyBody = document.getElementById('historyBody');
+            const sorted = [...weightEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+            historyBody.innerHTML = sorted.map(e => `
+                <tr class="border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors">
+                    <td class="py-3 px-4">${e.date}</td>
+                    <td class="py-3 px-4 font-bold text-blue-400">${e.weight.toFixed(1)} kg</td>
+                    <td class="py-3 px-4 text-right">
+                        <button onclick="deleteEntry('${e.id}')" class="text-red-400 hover:scale-110 transition-transform">
+                             <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderChart() {
+            const canvas = document.getElementById('weightChart');
+            const ctx = canvas.getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+            
+            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: weightEntries.map(e => e.date),
+                    datasets: [{
+                        label: 'Waga (kg)',
+                        data: weightEntries.map(e => e.weight),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { ticks: { color: isDark ? '#94a3b8' : '#64748b' } },
+                        x: { ticks: { color: isDark ? '#94a3b8' : '#64748b' } }
+                    }
+                }
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
+        }
+
+        window.onload = () => {
+            document.getElementById('weightDate').value = new Date().toISOString().split('T')[0];
+            initFirebase();
+        };
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
+        .card { background-color: #0f172a; border: 1px solid #1e293b; border-radius: 1rem; padding: 1.5rem; }
+        input { background: #1e293b; color: white; border: 1px solid #334155; padding: 0.5rem; border-radius: 0.5rem; outline: none; }
+        input:focus { border-color: #3b82f6; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-4xl mx-auto space-y-6">
+        <header class="flex justify-between items-center">
+            <h1 class="text-2xl font-bold flex items-center gap-2">
+                <i data-lucide="scale" class="text-blue-500"></i> Cloud Weight
+            </h1>
+            <div class="flex items-center gap-2 text-xs opacity-70">
+                <i id="statusIcon" data-lucide="cloud" class="w-4 h-4"></i>
+                <span id="statusText">Łączenie...</span>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="card space-y-4 h-fit">
+                <h2 class="font-semibold text-lg">Nowy pomiar</h2>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] uppercase font-bold opacity-50">Data</label>
+                    <input type="date" id="weightDate">
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] uppercase font-bold opacity-50">Waga (kg)</label>
+                    <input type="number" id="weightValue" step="0.1" placeholder="00.0">
+                </div>
+                <button onclick="addEntry()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-all active:scale-95 shadow-lg shadow-blue-500/20">
+                    Dodaj do bazy
+                </button>
+            </div>
+
+            <div class="card md:col-span-2">
+                <h2 class="font-semibold mb-4 text-lg">Wykres postępów</h2>
+                <div class="h-[250px]">
+                    <canvas id="weightChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="font-semibold mb-4 text-lg">Historia wpisów</h2>
+            <div class="max-h-64 overflow-y-auto">
+                <table class="w-full text-sm">
+                    <tbody id="historyBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-6 py-3 rounded-full border border-slate-700 shadow-2xl z-50 text-center">
+        <span id="toastMsg"></span>
+    </div>
+</body>
+</html>
