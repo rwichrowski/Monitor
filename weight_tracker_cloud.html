@@ -76,8 +76,10 @@
         // Dodawanie wpisu
         window.addEntry = async () => {
             const weightInput = document.getElementById('weightValue');
+            const caloriesInput = document.getElementById('caloriesValue');
             const dateInput = document.getElementById('weightDate');
             const weight = parseFloat(weightInput.value);
+            const calories = parseInt(caloriesInput.value);
             const date = dateInput.value;
 
             if (!currentUser || isNaN(weight) || !date) {
@@ -91,9 +93,11 @@
                     .collection('weights').doc(date).set({
                         date,
                         weight,
+                        calories: isNaN(calories) ? null : calories,
                         timestamp: Date.now()
                     });
                 weightInput.value = '';
+                caloriesInput.value = '';
                 showToast("Zapisano!");
             } catch (e) {
                 showToast("Błąd zapisu");
@@ -124,6 +128,7 @@
                 <tr class="border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors">
                     <td class="py-3 px-4">${e.date}</td>
                     <td class="py-3 px-4 font-bold text-blue-400">${e.weight.toFixed(1)} kg</td>
+                    <td class="py-3 px-4 font-bold text-green-400">${e.calories ? e.calories + ' kcal' : '-'}</td>
                     <td class="py-3 px-4 text-right">
                         <button onclick="deleteEntry('${e.id}')" class="text-red-400 hover:scale-110 transition-transform">
                              <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -150,14 +155,33 @@
                         borderColor: '#3b82f6',
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
                         fill: true,
-                        tension: 0.3
+                        tension: 0.3,
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Kalorie (kcal)',
+                        data: weightEntries.map(e => e.calories || null),
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: false,
+                        tension: 0.3,
+                        yAxisID: 'y1'
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-                        y: { ticks: { color: isDark ? '#94a3b8' : '#64748b' } },
+                        y: { 
+                            type: 'linear',
+                            position: 'left',
+                            ticks: { color: isDark ? '#94a3b8' : '#64748b' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            ticks: { color: isDark ? '#94a3b8' : '#64748b' },
+                            grid: { drawOnChartArea: false }
+                        },
                         x: { ticks: { color: isDark ? '#94a3b8' : '#64748b' } }
                     }
                 }
@@ -208,6 +232,10 @@
                     <label class="text-[10px] uppercase font-bold opacity-50">Waga (kg)</label>
                     <input type="number" id="weightValue" step="0.1" placeholder="00.0">
                 </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] uppercase font-bold opacity-50">Kalorie (kcal)</label>
+                    <input type="number" id="caloriesValue" step="1" placeholder="0000">
+                </div>
                 <button onclick="addEntry()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-all active:scale-95 shadow-lg shadow-blue-500/20">
                     Dodaj do bazy
                 </button>
@@ -225,6 +253,14 @@
             <h2 class="font-semibold mb-4 text-lg">Historia wpisów</h2>
             <div class="max-h-64 overflow-y-auto">
                 <table class="w-full text-sm">
+                    <thead class="text-xs uppercase opacity-50">
+                        <tr class="border-b border-slate-700/50">
+                            <th class="py-2 px-4 text-left">Data</th>
+                            <th class="py-2 px-4 text-left">Waga</th>
+                            <th class="py-2 px-4 text-left">Kalorie</th>
+                            <th class="py-2 px-4 text-right">Akcje</th>
+                        </tr>
+                    </thead>
                     <tbody id="historyBody"></tbody>
                 </table>
             </div>
