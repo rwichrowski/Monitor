@@ -38,9 +38,8 @@
             db = firebase.firestore();
 
             try {
-                // Logowanie anonimowe
-                const cred = await auth.signInAnonymously();
-                
+                await auth.signInAnonymously();
+
                 auth.onAuthStateChanged((user) => {
                     if (user) {
                         currentUser = user;
@@ -57,8 +56,9 @@
 
         // Pobieranie danych w czasie rzeczywistym
         const startSync = () => {
+            const uid = (typeof userId !== 'undefined') ? userId : currentUser.uid;
             const path = db.collection('artifacts').doc(appId)
-                           .collection('users').doc(currentUser.uid)
+                           .collection('users').doc(uid)
                            .collection('weights');
             
             path.onSnapshot((snapshot) => {
@@ -88,8 +88,9 @@
             }
 
             try {
+                const uid = (typeof userId !== 'undefined') ? userId : currentUser.uid;
                 await db.collection('artifacts').doc(appId)
-                    .collection('users').doc(currentUser.uid)
+                    .collection('users').doc(uid)
                     .collection('weights').doc(date).set({
                         date,
                         weight,
@@ -106,8 +107,9 @@
         window.deleteEntry = async (id) => {
             if (!confirm(`Usunąć wpis z dnia ${id}?`)) return;
             try {
+                const uid = (typeof userId !== 'undefined') ? userId : currentUser.uid;
                 await db.collection('artifacts').doc(appId)
-                    .collection('users').doc(currentUser.uid)
+                    .collection('users').doc(uid)
                     .collection('weights').doc(id).delete();
                 showToast("Usunięto");
             } catch (e) { showToast("Błąd usuwania"); }
