@@ -96,8 +96,6 @@
                         calories: isNaN(calories) ? null : calories,
                         timestamp: Date.now()
                     });
-                weightInput.value = '';
-                caloriesInput.value = '';
                 showToast("Zapisano!");
             } catch (e) {
                 showToast("Błąd zapisu");
@@ -115,9 +113,26 @@
             } catch (e) { showToast("Błąd usuwania"); }
         };
 
+        function fillFormForDate(date) {
+            const entry = weightEntries.find(e => e.date === date);
+            const weightInput = document.getElementById('weightValue');
+            const caloriesInput = document.getElementById('caloriesValue');
+            const btn = document.getElementById('addBtn');
+            if (entry) {
+                weightInput.value = entry.weight ?? '';
+                caloriesInput.value = entry.calories ?? '';
+                btn.textContent = 'Zaktualizuj wpis';
+            } else {
+                weightInput.value = '';
+                caloriesInput.value = '';
+                btn.textContent = 'Dodaj do bazy';
+            }
+        }
+
         function updateUI() {
             renderTable();
             renderChart();
+            fillFormForDate(document.getElementById('weightDate').value);
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
@@ -197,6 +212,9 @@
 
         window.onload = () => {
             document.getElementById('weightDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('weightDate').addEventListener('change', (e) => {
+                fillFormForDate(e.target.value);
+            });
             initFirebase();
         };
     </script>
@@ -236,7 +254,7 @@
                     <label class="text-[10px] uppercase font-bold opacity-50">Kalorie (kcal)</label>
                     <input type="number" id="caloriesValue" step="1" placeholder="0000">
                 </div>
-                <button onclick="addEntry()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-all active:scale-95 shadow-lg shadow-blue-500/20">
+                <button id="addBtn" onclick="addEntry()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-all active:scale-95 shadow-lg shadow-blue-500/20">
                     Dodaj do bazy
                 </button>
             </div>
