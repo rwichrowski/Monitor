@@ -57,10 +57,15 @@
         // Pobieranie danych w czasie rzeczywistym
         const startSync = () => {
             const uid = (typeof userId !== 'undefined') ? userId : currentUser.uid;
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - 30);
+            const cutoffDate = cutoff.toISOString().split('T')[0];
+
             const path = db.collection('artifacts').doc(appId)
                            .collection('users').doc(uid)
-                           .collection('weights');
-            
+                           .collection('weights')
+                           .where('date', '>=', cutoffDate);
+
             path.onSnapshot((snapshot) => {
                 weightEntries = snapshot.docs.map(doc => ({
                     id: doc.id,
