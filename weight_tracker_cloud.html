@@ -20,6 +20,7 @@
         let currentUser = null;
         let weightEntries = [];
         let chartInstance = null;
+        let scatterInstance = null;
         const appId = 'weight-tracker-cloud';
 
         // Inicjalizacja Firebase
@@ -139,6 +140,7 @@
         function updateUI() {
             renderTable();
             renderChart();
+            renderScatter();
             fillFormForDate(document.getElementById('weightDate').value);
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
@@ -164,47 +166,98 @@
             const canvas = document.getElementById('weightChart');
             const ctx = canvas.getContext('2d');
             if (chartInstance) chartInstance.destroy();
-            
+
             const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const tickColor = isDark ? '#94a3b8' : '#64748b';
 
             chartInstance = new Chart(ctx, {
-                type: 'line',
+                type: 'bar',
                 data: {
                     labels: weightEntries.map(e => e.date),
                     datasets: [{
+                        type: 'line',
                         label: 'Waga (kg)',
                         data: weightEntries.map(e => e.weight),
                         borderColor: '#3b82f6',
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
                         fill: true,
                         tension: 0.3,
-                        yAxisID: 'y'
+                        yAxisID: 'y',
+                        order: 1
                     }, {
+                        type: 'bar',
                         label: 'Kalorie (kcal)',
                         data: weightEntries.map(e => e.calories || null),
+                        backgroundColor: 'rgba(16, 185, 129, 0.5)',
                         borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        fill: false,
-                        tension: 0.3,
-                        yAxisID: 'y1'
+                        borderWidth: 1,
+                        yAxisID: 'y1',
+                        order: 2
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-                        y: { 
+                        y: {
                             type: 'linear',
                             position: 'left',
-                            ticks: { color: isDark ? '#94a3b8' : '#64748b' }
+                            ticks: { color: tickColor }
                         },
                         y1: {
                             type: 'linear',
                             position: 'right',
-                            ticks: { color: isDark ? '#94a3b8' : '#64748b' },
+                            ticks: { color: tickColor },
                             grid: { drawOnChartArea: false }
                         },
-                        x: { ticks: { color: isDark ? '#94a3b8' : '#64748b' } }
+                        x: { ticks: { color: tickColor } }
+                    }
+                }
+            });
+        }
+
+        function renderScatter() {
+            const canvas = document.getElementById('scatterChart');
+            const ctx = canvas.getContext('2d');
+            if (scatterInstance) scatterInstance.destroy();
+
+            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const tickColor = isDark ? '#94a3b8' : '#64748b';
+            const points = weightEntries
+                .filter(e => e.calories)
+                .map(e => ({ x: e.calories, y: e.weight, date: e.date }));
+
+            scatterInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Kalorie vs Waga',
+                        data: points,
+                        backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                        borderColor: '#3b82f6',
+                        pointRadius: 6,
+                        pointHoverRadius: 9
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (item) => `${item.raw.date}: ${item.raw.x} kcal, ${item.raw.y} kg`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Kalorie (kcal)', color: tickColor },
+                            ticks: { color: tickColor }
+                        },
+                        y: {
+                            title: { display: true, text: 'Waga (kg)', color: tickColor },
+                            ticks: { color: tickColor }
+                        }
                     }
                 }
             });
@@ -271,6 +324,13 @@
                 <div class="h-[250px]">
                     <canvas id="weightChart"></canvas>
                 </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="font-semibold mb-4 text-lg">Korelacja: kalorie vs waga</h2>
+            <div class="h-[250px]">
+                <canvas id="scatterChart"></canvas>
             </div>
         </div>
 
