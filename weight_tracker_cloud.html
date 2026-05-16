@@ -216,48 +216,119 @@
             });
         }
 
+        function isoWeekKey(dateStr) {
+            const d = new Date(dateStr + 'T12:00:00');
+            const day = d.getDay() || 7;
+            d.setDate(d.getDate() + 4 - day);
+            const jan1 = new Date(d.getFullYear(), 0, 1);
+            const w = Math.ceil((((d - jan1) / 86400000) + 1) / 7);
+            return `${d.getFullYear()}-W${String(w).padStart(2, '0')}`;
+        }
+
+        function saveTDEE(val) {
+            localStorage.setItem('tdee', val);
+        }
+
         function renderScatter() {
             const canvas = document.getElementById('scatterChart');
             const ctx = canvas.getContext('2d');
             if (scatterInstance) scatterInstance.destroy();
 
+            const tdee = parseInt(document.getElementById('tdeeValue').value) || 2000;
             const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             const tickColor = isDark ? '#94a3b8' : '#64748b';
-            const points = weightEntries
-                .filter(e => e.calories)
-                .map(e => ({ x: e.calories, y: e.weight, date: e.date }));
+
+            const weekMap = {};
+            weightEntries.forEach(e => {
+                const wk = isoWeekKey(e.date);
+                if (!weekMap[wk]) weekMap[wk] = { weights: [] };
+                if (e.weight) weekMap[wk].weights.push(e.weight);
+            });
+
+            const weeks = Object.keys(weekMap).sort();
+
+            const firstWeights = weeks.length ? weekMap[weeks[0]].weights : [];
+            const startWeight = firstWeights.length
+                ? firstWeights.reduce((a, b) => a + b, 0) / firstWeights.length
+                : null;
+
+            let cumBal = 0;
+            const cumBalByWeek = {};
+            weightEntries.forEach(e => {
+                if (e.calories) cumBal += e.calories - tdee;
+                cumBalByWeek[isoWeekKey(e.date)] = cumBal;
+            });
+
+            const labels = weeks.map(w => {
+                const m = w.match(/(\d{4})-W(\d+)/);
+                return m ? `T${parseInt(m[2])}/${m[1].slice(2)}` : w;
+            });
+
+            const weightChanges = weeks.map(wk => {
+                const ws = weekMap[wk].weights;
+                if (!ws.length || startWeight === null) return null;
+                return +((ws.reduce((a, b) => a + b, 0) / ws.length - startWeight).toFixed(2));
+            });
+
+            const cumulativeBals = weeks.map(wk =>
+                cumBalByWeek[wk] !== undefined ? Math.round(cumBalByWeek[wk]) : null
+            );
 
             scatterInstance = new Chart(ctx, {
-                type: 'scatter',
+                type: 'line',
                 data: {
-                    datasets: [{
-                        label: 'Kalorie vs Waga',
-                        data: points,
-                        backgroundColor: 'rgba(59, 130, 246, 0.6)',
-                        borderColor: '#3b82f6',
-                        pointRadius: 6,
-                        pointHoverRadius: 9
-                    }]
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Zmiana wagi (kg)',
+                            data: weightChanges,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59,130,246,0.1)',
+                            yAxisID: 'y',
+                            tension: 0.3,
+                            pointRadius: 4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Bilans kcal (skum.)',
+                            data: cumulativeBals,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245,158,11,0.08)',
+                            yAxisID: 'y1',
+                            tension: 0.3,
+                            pointRadius: 4,
+                            spanGaps: true
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
                     plugins: {
                         tooltip: {
                             callbacks: {
-                                label: (item) => `${item.raw.date}: ${item.raw.x} kcal, ${item.raw.y} kg`
+                                label: (item) => item.datasetIndex === 0
+                                    ? `Waga: ${item.raw > 0 ? '+' : ''}${item.raw} kg`
+                                    : `Bilans: ${item.raw > 0 ? '+' : ''}${item.raw} kcal`
                             }
                         }
                     },
                     scales: {
-                        x: {
-                            title: { display: true, text: 'Kalorie (kcal)', color: tickColor },
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            title: { display: true, text: 'Zmiana wagi (kg)', color: tickColor },
                             ticks: { color: tickColor }
                         },
-                        y: {
-                            title: { display: true, text: 'Waga (kg)', color: tickColor },
-                            ticks: { color: tickColor }
-                        }
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: 'Bilans kcal', color: tickColor },
+                            ticks: { color: tickColor },
+                            grid: { drawOnChartArea: false }
+                        },
+                        x: { ticks: { color: tickColor } }
                     }
                 }
             });
@@ -275,6 +346,8 @@
             document.getElementById('weightDate').addEventListener('change', (e) => {
                 fillFormForDate(e.target.value);
             });
+            const savedTDEE = localStorage.getItem('tdee');
+            if (savedTDEE) document.getElementById('tdeeValue').value = savedTDEE;
             initFirebase();
         };
     </script>
@@ -328,8 +401,17 @@
         </div>
 
         <div class="card">
-            <h2 class="font-semibold mb-4 text-lg">Korelacja: kalorie vs waga</h2>
-            <div class="h-[250px]">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-semibold text-lg">Bilans kalorii vs zmiana wagi (tygodniowo)</h2>
+                <div class="flex items-center gap-2 text-xs opacity-60">
+                    <label for="tdeeValue" class="uppercase font-bold">TDEE</label>
+                    <input type="number" id="tdeeValue" step="50" placeholder="2000"
+                        class="w-24 text-right"
+                        onchange="saveTDEE(this.value); renderScatter()">
+                    <span>kcal/dzień</span>
+                </div>
+            </div>
+            <div class="h-[280px]">
                 <canvas id="scatterChart"></canvas>
             </div>
         </div>
