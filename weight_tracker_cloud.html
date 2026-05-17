@@ -170,6 +170,11 @@
             const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             const tickColor = isDark ? '#94a3b8' : '#64748b';
 
+            const weights = weightEntries.map(e => e.weight).filter(Boolean);
+            const pad = 2;
+            const yMin = weights.length ? Math.floor(Math.min(...weights) - pad) : 0;
+            const yMax = weights.length ? Math.ceil(Math.max(...weights) + pad) : 120;
+
             chartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -202,6 +207,8 @@
                         y: {
                             type: 'linear',
                             position: 'left',
+                            min: yMin,
+                            max: yMax,
                             ticks: { color: tickColor }
                         },
                         y1: {
