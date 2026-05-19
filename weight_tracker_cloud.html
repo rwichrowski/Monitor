@@ -162,8 +162,101 @@
             renderActivityTable();
             renderChart();
             renderScatter();
+            renderDashboard();
             fillFormForDate(document.getElementById('weightDate').value);
             if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function renderDashboard() {
+            const el = document.getElementById('dashboardSummary');
+            if (!el || !weightEntries.length) return;
+
+            const latest = weightEntries[weightEntries.length - 1];
+            const prevEntry = weightEntries.length > 1 ? weightEntries[weightEntries.length - 2] : null;
+
+            // Tile 1: Aktualna waga
+            document.getElementById('dash-weight').textContent = latest.weight.toFixed(1);
+            const deltaEl = document.getElementById('dash-weight-delta');
+            if (prevEntry) {
+                const delta = latest.weight - prevEntry.weight;
+                const sign = delta > 0 ? '+' : '';
+                const color = delta < 0 ? 'text-green-400' : delta > 0 ? 'text-red-400' : 'text-slate-400';
+                deltaEl.textContent = `${sign}${delta.toFixed(1)} kg vs ${prevEntry.date}`;
+                deltaEl.className = `text-xs mt-2 ${color}`;
+            } else {
+                deltaEl.textContent = 'pierwszy wpis';
+                deltaEl.className = 'text-xs mt-2 opacity-40';
+            }
+
+            // Tile 2: Trend tygodniowy
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+            const weekOldEntries = weightEntries.filter(e => e.date <= sevenDaysAgoStr && e.weight);
+            const weekOldEntry = weekOldEntries.length ? weekOldEntries[weekOldEntries.length - 1] : null;
+
+            const trendEl = document.getElementById('dash-trend');
+            const trendBarEl = document.getElementById('dash-trend-bar');
+            const trendSubEl = document.getElementById('dash-trend-sub');
+            const trendIconEl = document.getElementById('dash-trend-icon');
+
+            if (weekOldEntry) {
+                const trend = latest.weight - weekOldEntry.weight;
+                const sign = trend > 0 ? '+' : '';
+                const isGood = trend <= 0;
+                trendEl.textContent = `${sign}${trend.toFixed(1)}`;
+                trendEl.className = `text-3xl font-bold ${isGood ? 'text-green-400' : 'text-red-400'}`;
+                trendBarEl.className = `absolute top-0 left-0 right-0 h-0.5 ${isGood ? 'bg-green-500' : 'bg-red-500'}`;
+                trendSubEl.textContent = `${weekOldEntry.weight.toFixed(1)} → ${latest.weight.toFixed(1)} kg (od ${weekOldEntry.date})`;
+                if (trendIconEl) {
+                    trendIconEl.setAttribute('data-lucide', trend < 0 ? 'trending-down' : trend > 0 ? 'trending-up' : 'minus');
+                    trendIconEl.className = `w-4 h-4 ${isGood ? 'text-green-400' : 'text-red-400'}`;
+                }
+            } else {
+                trendEl.textContent = 'brak';
+                trendEl.className = 'text-3xl font-bold text-slate-400';
+                trendSubEl.textContent = 'zbyt mało danych';
+            }
+
+            // Tile 3: Bilans kcal
+            const tdee = parseInt(document.getElementById('tdeeValue').value) || 2000;
+            const today = new Date().toISOString().split('T')[0];
+            const todayEntry = weightEntries.find(e => e.date === today);
+
+            const kcalEl = document.getElementById('dash-kcal');
+            const kcalBarEl = document.getElementById('dash-kcal-bar');
+            const kcalSubEl = document.getElementById('dash-kcal-sub');
+
+            let kcalBalance = null;
+            let kcalLabel = '';
+
+            if (todayEntry && todayEntry.calories) {
+                const net = todayEntry.calories - (todayEntry.burnedCalories || 0);
+                kcalBalance = net - tdee;
+                kcalLabel = `dziś: ${net} kcal netto`;
+            } else {
+                const last7 = weightEntries.filter(e => e.date >= sevenDaysAgoStr && e.calories);
+                if (last7.length) {
+                    const avgNet = last7.reduce((s, e) => s + e.calories - (e.burnedCalories || 0), 0) / last7.length;
+                    kcalBalance = Math.round(avgNet - tdee);
+                    kcalLabel = `śr. 7 dni: ${Math.round(avgNet)} kcal netto`;
+                }
+            }
+
+            if (kcalBalance !== null) {
+                const sign = kcalBalance > 0 ? '+' : '';
+                const isDeficit = kcalBalance < 0;
+                kcalEl.textContent = `${sign}${kcalBalance}`;
+                kcalEl.className = `text-3xl font-bold ${isDeficit ? 'text-green-400' : 'text-orange-400'}`;
+                kcalBarEl.className = `absolute top-0 left-0 right-0 h-0.5 ${isDeficit ? 'bg-green-500' : 'bg-orange-500'}`;
+                kcalSubEl.textContent = kcalLabel;
+            } else {
+                kcalEl.textContent = 'brak';
+                kcalEl.className = 'text-3xl font-bold text-slate-400';
+                kcalSubEl.textContent = 'brak danych kalorycznych';
+            }
+
+            el.classList.remove('opacity-0');
         }
 
         function renderTable() {
@@ -630,6 +723,48 @@
                 <span id="statusText">Łączenie...</span>
             </div>
         </header>
+
+        <!-- Dashboard Summary -->
+        <div id="dashboardSummary" class="grid grid-cols-3 gap-4 opacity-0 transition-opacity duration-700">
+            <div class="card relative overflow-hidden">
+                <div class="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 opacity-80"></div>
+                <div class="flex justify-between items-start mb-3">
+                    <p class="text-[10px] uppercase font-bold opacity-40 tracking-widest">Aktualna waga</p>
+                    <i data-lucide="scale" class="w-4 h-4 text-blue-500 opacity-60"></i>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="dash-weight" class="text-3xl font-bold text-blue-400">--</span>
+                    <span class="text-sm opacity-40">kg</span>
+                </div>
+                <p id="dash-weight-delta" class="text-xs mt-2 opacity-60">brak danych</p>
+            </div>
+
+            <div class="card relative overflow-hidden">
+                <div id="dash-trend-bar" class="absolute top-0 left-0 right-0 h-0.5 bg-slate-600"></div>
+                <div class="flex justify-between items-start mb-3">
+                    <p class="text-[10px] uppercase font-bold opacity-40 tracking-widest">Trend 7 dni</p>
+                    <i id="dash-trend-icon" data-lucide="minus" class="w-4 h-4 opacity-60"></i>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="dash-trend" class="text-3xl font-bold text-slate-400">--</span>
+                    <span class="text-sm opacity-40">kg</span>
+                </div>
+                <p id="dash-trend-sub" class="text-xs mt-2 opacity-60">ostatnie 7 dni</p>
+            </div>
+
+            <div class="card relative overflow-hidden">
+                <div id="dash-kcal-bar" class="absolute top-0 left-0 right-0 h-0.5 bg-slate-600"></div>
+                <div class="flex justify-between items-start mb-3">
+                    <p class="text-[10px] uppercase font-bold opacity-40 tracking-widest">Bilans kcal</p>
+                    <i data-lucide="flame" class="w-4 h-4 opacity-60 text-orange-400"></i>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="dash-kcal" class="text-3xl font-bold text-slate-400">--</span>
+                    <span class="text-sm opacity-40">kcal</span>
+                </div>
+                <p id="dash-kcal-sub" class="text-xs mt-2 opacity-60">vs. TDEE</p>
+            </div>
+        </div>
 
         <!-- Tab bar -->
         <div class="flex gap-2">
