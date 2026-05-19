@@ -83,9 +83,11 @@
         window.addEntry = async () => {
             const weightInput = document.getElementById('weightValue');
             const caloriesInput = document.getElementById('caloriesValue');
+            const burnedInput = document.getElementById('burnedCaloriesValue');
             const dateInput = document.getElementById('weightDate');
             const weight = parseFloat(weightInput.value);
             const calories = parseInt(caloriesInput.value);
+            const burnedCalories = parseInt(burnedInput.value);
             const date = dateInput.value;
 
             if (!currentUser || isNaN(weight) || !date) {
@@ -101,6 +103,7 @@
                         date,
                         weight,
                         calories: isNaN(calories) ? null : calories,
+                        burnedCalories: isNaN(burnedCalories) ? null : burnedCalories,
                         timestamp: Date.now()
                     });
                 showToast("Zapisano!");
@@ -125,14 +128,17 @@
             const entry = weightEntries.find(e => e.date === date);
             const weightInput = document.getElementById('weightValue');
             const caloriesInput = document.getElementById('caloriesValue');
+            const burnedInput = document.getElementById('burnedCaloriesValue');
             const btn = document.getElementById('addBtn');
             if (entry) {
                 weightInput.value = entry.weight ?? '';
                 caloriesInput.value = entry.calories ?? '';
+                burnedInput.value = entry.burnedCalories ?? '';
                 btn.textContent = 'Zaktualizuj wpis';
             } else {
                 weightInput.value = '';
                 caloriesInput.value = '';
+                burnedInput.value = '';
                 btn.textContent = 'Dodaj do bazy';
             }
         }
@@ -153,6 +159,7 @@
                     <td class="py-3 px-4">${e.date}</td>
                     <td class="py-3 px-4 font-bold text-blue-400">${e.weight.toFixed(1)} kg</td>
                     <td class="py-3 px-4 font-bold text-green-400">${e.calories ? e.calories + ' kcal' : '-'}</td>
+                    <td class="py-3 px-4 font-bold text-orange-400">${e.burnedCalories ? e.burnedCalories + ' kcal' : '-'}</td>
                     <td class="py-3 px-4 text-right">
                         <button onclick="deleteEntry('${e.id}')" class="text-red-400 hover:scale-110 transition-transform">
                              <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -191,13 +198,24 @@
                         order: 1
                     }, {
                         type: 'bar',
-                        label: 'Kalorie (kcal)',
-                        data: weightEntries.map(e => e.calories || null),
-                        backgroundColor: 'rgba(16, 185, 129, 0.5)',
+                        label: 'Netto (kcal)',
+                        data: weightEntries.map(e => e.calories ? e.calories - (e.burnedCalories || 0) : null),
+                        backgroundColor: 'rgba(16, 185, 129, 0.55)',
                         borderColor: '#10b981',
                         borderWidth: 1,
                         yAxisID: 'y1',
+                        stack: 'cal',
                         order: 2
+                    }, {
+                        type: 'bar',
+                        label: 'Spalone (kcal)',
+                        data: weightEntries.map(e => e.burnedCalories || null),
+                        backgroundColor: 'rgba(110, 231, 183, 0.55)',
+                        borderColor: '#6ee7b7',
+                        borderWidth: 1,
+                        yAxisID: 'y1',
+                        stack: 'cal',
+                        order: 3
                     }]
                 },
                 options: {
@@ -214,6 +232,7 @@
                         y1: {
                             type: 'linear',
                             position: 'right',
+                            stacked: true,
                             ticks: { color: tickColor },
                             grid: { drawOnChartArea: false }
                         },
@@ -262,7 +281,7 @@
             let cumBal = 0;
             const cumBalByWeek = {};
             weightEntries.forEach(e => {
-                if (e.calories) cumBal += e.calories - tdee;
+                if (e.calories) cumBal += e.calories - tdee - (e.burnedCalories || 0);
                 cumBalByWeek[isoWeekKey(e.date)] = cumBal;
             });
 
@@ -341,6 +360,28 @@
             });
         }
 
+        function calcBurnedCalories(activity, quantity) {
+            const weight = weightEntries.length > 0
+                ? weightEntries[weightEntries.length - 1].weight
+                : 117;
+            const MET = { trucht: 8.7, rower: 7.5, silownia: 4.0 }[activity];
+            const hours = activity === 'trucht' ? quantity / (60 / 7)
+                        : activity === 'rower'  ? quantity / 18
+                        : quantity / 60;
+            return Math.round(MET * weight * hours);
+        }
+
+        window.addActivityCalc = () => {
+            const activity = document.getElementById('activitySelect').value;
+            const quantity = parseFloat(document.getElementById('activityQuantity').value);
+            if (isNaN(quantity) || quantity <= 0) return;
+            const burned = calcBurnedCalories(activity, quantity);
+            const current = parseInt(document.getElementById('burnedCaloriesValue').value) || 0;
+            document.getElementById('burnedCaloriesValue').value = current + burned;
+            document.getElementById('activityQuantity').value = '';
+            showToast(`+${burned} kcal spalonych`);
+        };
+
         function showToast(msg) {
             const toast = document.getElementById('toast');
             document.getElementById('toastMsg').innerText = msg;
@@ -363,8 +404,9 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
         .card { background-color: #0f172a; border: 1px solid #1e293b; border-radius: 1rem; padding: 1.5rem; }
-        input { background: #1e293b; color: white; border: 1px solid #334155; padding: 0.5rem; border-radius: 0.5rem; outline: none; }
-        input:focus { border-color: #3b82f6; }
+        input, select { background: #1e293b; color: white; border: 1px solid #334155; padding: 0.5rem; border-radius: 0.5rem; outline: none; }
+        input:focus, select:focus { border-color: #3b82f6; }
+        select option { background: #1e293b; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -391,8 +433,24 @@
                     <input type="number" id="weightValue" step="0.1" placeholder="00.0">
                 </div>
                 <div class="flex flex-col gap-1">
-                    <label class="text-[10px] uppercase font-bold opacity-50">Kalorie (kcal)</label>
+                    <label class="text-[10px] uppercase font-bold opacity-50">Spożyte kalorie (kcal)</label>
                     <input type="number" id="caloriesValue" step="1" placeholder="0000">
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] uppercase font-bold opacity-50">Spalone kalorie (kcal)</label>
+                    <input type="number" id="burnedCaloriesValue" step="1" placeholder="0">
+                </div>
+                <div class="rounded-lg border border-slate-700/60 p-2 space-y-2">
+                    <label class="text-[10px] uppercase font-bold opacity-40">Kalkulator aktywności</label>
+                    <div class="flex gap-1 items-center">
+                        <select id="activitySelect" class="flex-1 text-xs py-1 px-1">
+                            <option value="trucht">Trucht (km)</option>
+                            <option value="rower">Rower (km)</option>
+                            <option value="silownia">Siłownia (min)</option>
+                        </select>
+                        <input type="number" id="activityQuantity" step="0.5" min="0" placeholder="5" class="w-14 text-center text-xs">
+                        <button onclick="addActivityCalc()" class="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-bold transition-all active:scale-95">+</button>
+                    </div>
                 </div>
                 <button id="addBtn" onclick="addEntry()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-all active:scale-95 shadow-lg shadow-blue-500/20">
                     Dodaj do bazy
@@ -431,7 +489,8 @@
                         <tr class="border-b border-slate-700/50">
                             <th class="py-2 px-4 text-left">Data</th>
                             <th class="py-2 px-4 text-left">Waga</th>
-                            <th class="py-2 px-4 text-left">Kalorie</th>
+                            <th class="py-2 px-4 text-left">Spożyte</th>
+                            <th class="py-2 px-4 text-left">Spalone</th>
                             <th class="py-2 px-4 text-right">Akcje</th>
                         </tr>
                     </thead>
