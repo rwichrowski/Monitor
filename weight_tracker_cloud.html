@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitor Wagi Cloud</title>
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    
+
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -21,9 +21,9 @@
         let weightEntries = [];
         let chartInstance = null;
         let scatterInstance = null;
+        let activityAcc = { trucht: 0, rower: 0, silownia: 0 };
         const appId = 'weight-tracker-cloud';
 
-        // Inicjalizacja Firebase
         const initFirebase = async () => {
             const statusText = document.getElementById('statusText');
             const statusIcon = document.getElementById('statusIcon');
@@ -55,7 +55,6 @@
             }
         };
 
-        // Pobieranie danych w czasie rzeczywistym
         const startSync = () => {
             const uid = (typeof userId !== 'undefined') ? userId : currentUser.uid;
             const cutoff = new Date();
@@ -79,7 +78,6 @@
             });
         };
 
-        // Dodawanie wpisu
         window.addEntry = async () => {
             const weightInput = document.getElementById('weightValue');
             const caloriesInput = document.getElementById('caloriesValue');
@@ -104,6 +102,9 @@
                         weight,
                         calories: isNaN(calories) ? null : calories,
                         burnedCalories: isNaN(burnedCalories) ? null : burnedCalories,
+                        trucht_km: activityAcc.trucht || null,
+                        rower_km: activityAcc.rower || null,
+                        silownia_min: activityAcc.silownia || null,
                         timestamp: Date.now()
                     });
                 showToast("Zapisano!");
@@ -112,7 +113,6 @@
             }
         };
 
-        // Usuwanie wpisu
         window.deleteEntry = async (id) => {
             if (!confirm(`Usunąć wpis z dnia ${id}?`)) return;
             try {
@@ -124,27 +124,42 @@
             } catch (e) { showToast("Błąd usuwania"); }
         };
 
+        function updateActivityDisplay() {
+            const parts = [];
+            if (activityAcc.trucht > 0) parts.push(`Trucht: ${activityAcc.trucht} km`);
+            if (activityAcc.rower > 0) parts.push(`Rower: ${activityAcc.rower} km`);
+            if (activityAcc.silownia > 0) parts.push(`Siłownia: ${activityAcc.silownia} min`);
+            const el = document.getElementById('activityDisplay');
+            if (el) el.textContent = parts.length ? parts.join(' · ') : '';
+        }
+
         function fillFormForDate(date) {
             const entry = weightEntries.find(e => e.date === date);
             const weightInput = document.getElementById('weightValue');
             const caloriesInput = document.getElementById('caloriesValue');
             const burnedInput = document.getElementById('burnedCaloriesValue');
             const btn = document.getElementById('addBtn');
+            activityAcc = { trucht: 0, rower: 0, silownia: 0 };
             if (entry) {
                 weightInput.value = entry.weight ?? '';
                 caloriesInput.value = entry.calories ?? '';
                 burnedInput.value = entry.burnedCalories ?? '';
                 btn.textContent = 'Zaktualizuj wpis';
+                activityAcc.trucht = entry.trucht_km || 0;
+                activityAcc.rower = entry.rower_km || 0;
+                activityAcc.silownia = entry.silownia_min || 0;
             } else {
                 weightInput.value = '';
                 caloriesInput.value = '';
                 burnedInput.value = '';
                 btn.textContent = 'Dodaj do bazy';
             }
+            updateActivityDisplay();
         }
 
         function updateUI() {
             renderTable();
+            renderActivityTable();
             renderChart();
             renderScatter();
             fillFormForDate(document.getElementById('weightDate').value);
@@ -165,6 +180,35 @@
                              <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderActivityTable() {
+            const body = document.getElementById('activityBody');
+            if (!body) return;
+            const sorted = [...weightEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const rows = sorted.filter(e => e.trucht_km || e.rower_km || e.silownia_min);
+
+            const totalTrucht = weightEntries.reduce((s, e) => s + (e.trucht_km || 0), 0);
+            const totalRower = weightEntries.reduce((s, e) => s + (e.rower_km || 0), 0);
+            const totalSilownia = weightEntries.reduce((s, e) => s + (e.silownia_min || 0), 0);
+
+            document.getElementById('sumTrucht').textContent = totalTrucht > 0 ? totalTrucht.toFixed(1) + ' km' : '-';
+            document.getElementById('sumRower').textContent = totalRower > 0 ? totalRower.toFixed(1) + ' km' : '-';
+            document.getElementById('sumSilownia').textContent = totalSilownia > 0 ? totalSilownia + ' min' : '-';
+
+            if (!rows.length) {
+                body.innerHTML = `<tr><td colspan="5" class="py-8 text-center opacity-40 text-sm">Brak danych o aktywności — dodaj aktywność w zakładce Waga</td></tr>`;
+                return;
+            }
+            body.innerHTML = rows.map(e => `
+                <tr class="border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors">
+                    <td class="py-3 px-4 text-slate-300">${e.date}</td>
+                    <td class="py-3 px-4 font-bold text-blue-400">${e.trucht_km ? e.trucht_km + ' km' : '-'}</td>
+                    <td class="py-3 px-4 font-bold text-green-400">${e.rower_km ? e.rower_km + ' km' : '-'}</td>
+                    <td class="py-3 px-4 font-bold text-purple-400">${e.silownia_min ? e.silownia_min + ' min' : '-'}</td>
+                    <td class="py-3 px-4 font-bold text-orange-400">${e.burnedCalories ? e.burnedCalories + ' kcal' : '-'}</td>
                 </tr>
             `).join('');
         }
@@ -379,6 +423,8 @@
             const current = parseInt(document.getElementById('burnedCaloriesValue').value) || 0;
             document.getElementById('burnedCaloriesValue').value = current + burned;
             document.getElementById('activityQuantity').value = '';
+            activityAcc[activity] = +(activityAcc[activity] + quantity).toFixed(2);
+            updateActivityDisplay();
             showToast(`+${burned} kcal spalonych`);
         };
 
@@ -387,6 +433,20 @@
             document.getElementById('toastMsg').innerText = msg;
             toast.classList.remove('translate-y-20', 'opacity-0');
             setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
+        }
+
+        function switchTab(n) {
+            document.getElementById('tab1').classList.toggle('hidden', n !== 1);
+            document.getElementById('tab2').classList.toggle('hidden', n !== 2);
+            const btn1 = document.getElementById('tab1Btn');
+            const btn2 = document.getElementById('tab2Btn');
+            [btn1, btn2].forEach((btn, i) => {
+                const active = i + 1 === n;
+                btn.classList.toggle('bg-blue-600', active);
+                btn.classList.toggle('text-white', active);
+                btn.classList.toggle('bg-slate-800', !active);
+                btn.classList.toggle('text-slate-400', !active);
+            });
         }
 
         window.onload = () => {
@@ -421,81 +481,135 @@
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="card space-y-4 h-fit">
-                <h2 class="font-semibold text-lg">Nowy pomiar</h2>
-                <div class="flex flex-col gap-1">
-                    <label class="text-[10px] uppercase font-bold opacity-50">Data</label>
-                    <input type="date" id="weightDate">
+        <!-- Tab bar -->
+        <div class="flex gap-2">
+            <button id="tab1Btn" onclick="switchTab(1)"
+                class="px-5 py-2 rounded-lg text-sm font-semibold transition-all bg-blue-600 text-white">
+                Waga i kalorie
+            </button>
+            <button id="tab2Btn" onclick="switchTab(2)"
+                class="px-5 py-2 rounded-lg text-sm font-semibold transition-all bg-slate-800 text-slate-400">
+                Aktywność
+            </button>
+        </div>
+
+        <!-- Tab 1: Waga i kalorie -->
+        <div id="tab1" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="card space-y-4 h-fit">
+                    <h2 class="font-semibold text-lg">Nowy pomiar</h2>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] uppercase font-bold opacity-50">Data</label>
+                        <input type="date" id="weightDate">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] uppercase font-bold opacity-50">Waga (kg)</label>
+                        <input type="number" id="weightValue" step="0.1" placeholder="00.0">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] uppercase font-bold opacity-50">Spożyte kalorie (kcal)</label>
+                        <input type="number" id="caloriesValue" step="1" placeholder="0000">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] uppercase font-bold opacity-50">Spalone kalorie (kcal)</label>
+                        <input type="number" id="burnedCaloriesValue" step="1" placeholder="0">
+                    </div>
+                    <div class="rounded-lg border border-slate-700/60 p-2 space-y-2">
+                        <label class="text-[10px] uppercase font-bold opacity-40">Kalkulator aktywności</label>
+                        <div class="flex gap-1 items-center">
+                            <select id="activitySelect" class="flex-1 text-xs py-1 px-1">
+                                <option value="trucht">Trucht (km)</option>
+                                <option value="rower">Rower (km)</option>
+                                <option value="silownia">Siłownia (min)</option>
+                            </select>
+                            <input type="number" id="activityQuantity" step="0.5" min="0" placeholder="5" class="w-14 text-center text-xs">
+                            <button onclick="addActivityCalc()" class="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-bold transition-all active:scale-95">+</button>
+                        </div>
+                        <p id="activityDisplay" class="text-[11px] text-slate-400 min-h-[1rem]"></p>
+                    </div>
+                    <button id="addBtn" onclick="addEntry()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-all active:scale-95 shadow-lg shadow-blue-500/20">
+                        Dodaj do bazy
+                    </button>
                 </div>
-                <div class="flex flex-col gap-1">
-                    <label class="text-[10px] uppercase font-bold opacity-50">Waga (kg)</label>
-                    <input type="number" id="weightValue" step="0.1" placeholder="00.0">
-                </div>
-                <div class="flex flex-col gap-1">
-                    <label class="text-[10px] uppercase font-bold opacity-50">Spożyte kalorie (kcal)</label>
-                    <input type="number" id="caloriesValue" step="1" placeholder="0000">
-                </div>
-                <div class="flex flex-col gap-1">
-                    <label class="text-[10px] uppercase font-bold opacity-50">Spalone kalorie (kcal)</label>
-                    <input type="number" id="burnedCaloriesValue" step="1" placeholder="0">
-                </div>
-                <div class="rounded-lg border border-slate-700/60 p-2 space-y-2">
-                    <label class="text-[10px] uppercase font-bold opacity-40">Kalkulator aktywności</label>
-                    <div class="flex gap-1 items-center">
-                        <select id="activitySelect" class="flex-1 text-xs py-1 px-1">
-                            <option value="trucht">Trucht (km)</option>
-                            <option value="rower">Rower (km)</option>
-                            <option value="silownia">Siłownia (min)</option>
-                        </select>
-                        <input type="number" id="activityQuantity" step="0.5" min="0" placeholder="5" class="w-14 text-center text-xs">
-                        <button onclick="addActivityCalc()" class="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-bold transition-all active:scale-95">+</button>
+
+                <div class="card md:col-span-2">
+                    <h2 class="font-semibold mb-4 text-lg">Wykres postępów</h2>
+                    <div class="h-[250px]">
+                        <canvas id="weightChart"></canvas>
                     </div>
                 </div>
-                <button id="addBtn" onclick="addEntry()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-all active:scale-95 shadow-lg shadow-blue-500/20">
-                    Dodaj do bazy
-                </button>
             </div>
 
-            <div class="card md:col-span-2">
-                <h2 class="font-semibold mb-4 text-lg">Wykres postępów</h2>
-                <div class="h-[250px]">
-                    <canvas id="weightChart"></canvas>
+            <div class="card">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-semibold text-lg">Bilans kalorii vs zmiana wagi (tygodniowo)</h2>
+                    <div class="flex items-center gap-2 text-xs opacity-60">
+                        <label for="tdeeValue" class="uppercase font-bold">TDEE</label>
+                        <input type="number" id="tdeeValue" step="50" placeholder="2000"
+                            class="w-24 text-right"
+                            onchange="saveTDEE(this.value); renderScatter()">
+                        <span>kcal/dzień</span>
+                    </div>
+                </div>
+                <div class="h-[280px]">
+                    <canvas id="scatterChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="font-semibold mb-4 text-lg">Historia wpisów</h2>
+                <div class="max-h-64 overflow-y-auto">
+                    <table class="w-full text-sm">
+                        <thead class="text-xs uppercase opacity-50">
+                            <tr class="border-b border-slate-700/50">
+                                <th class="py-2 px-4 text-left">Data</th>
+                                <th class="py-2 px-4 text-left">Waga</th>
+                                <th class="py-2 px-4 text-left">Spożyte</th>
+                                <th class="py-2 px-4 text-left">Spalone</th>
+                                <th class="py-2 px-4 text-right">Akcje</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyBody"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-        <div class="card">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="font-semibold text-lg">Bilans kalorii vs zmiana wagi (tygodniowo)</h2>
-                <div class="flex items-center gap-2 text-xs opacity-60">
-                    <label for="tdeeValue" class="uppercase font-bold">TDEE</label>
-                    <input type="number" id="tdeeValue" step="50" placeholder="2000"
-                        class="w-24 text-right"
-                        onchange="saveTDEE(this.value); renderScatter()">
-                    <span>kcal/dzień</span>
+        <!-- Tab 2: Aktywność -->
+        <div id="tab2" class="hidden space-y-6">
+            <!-- Podsumowanie -->
+            <div class="grid grid-cols-3 gap-4">
+                <div class="card text-center space-y-1">
+                    <p class="text-[10px] uppercase font-bold opacity-40">Trucht (30 dni)</p>
+                    <p id="sumTrucht" class="text-2xl font-bold text-blue-400">-</p>
+                </div>
+                <div class="card text-center space-y-1">
+                    <p class="text-[10px] uppercase font-bold opacity-40">Rower (30 dni)</p>
+                    <p id="sumRower" class="text-2xl font-bold text-green-400">-</p>
+                </div>
+                <div class="card text-center space-y-1">
+                    <p class="text-[10px] uppercase font-bold opacity-40">Siłownia (30 dni)</p>
+                    <p id="sumSilownia" class="text-2xl font-bold text-purple-400">-</p>
                 </div>
             </div>
-            <div class="h-[280px]">
-                <canvas id="scatterChart"></canvas>
-            </div>
-        </div>
 
-        <div class="card">
-            <h2 class="font-semibold mb-4 text-lg">Historia wpisów</h2>
-            <div class="max-h-64 overflow-y-auto">
-                <table class="w-full text-sm">
-                    <thead class="text-xs uppercase opacity-50">
-                        <tr class="border-b border-slate-700/50">
-                            <th class="py-2 px-4 text-left">Data</th>
-                            <th class="py-2 px-4 text-left">Waga</th>
-                            <th class="py-2 px-4 text-left">Spożyte</th>
-                            <th class="py-2 px-4 text-left">Spalone</th>
-                            <th class="py-2 px-4 text-right">Akcje</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historyBody"></tbody>
-                </table>
+            <!-- Tabela dzienna -->
+            <div class="card">
+                <h2 class="font-semibold mb-4 text-lg">Aktywność — zestawienie dzienne</h2>
+                <div class="max-h-[480px] overflow-y-auto">
+                    <table class="w-full text-sm">
+                        <thead class="text-xs uppercase opacity-50 sticky top-0 bg-slate-900">
+                            <tr class="border-b border-slate-700/50">
+                                <th class="py-2 px-4 text-left">Data</th>
+                                <th class="py-2 px-4 text-left">Trucht</th>
+                                <th class="py-2 px-4 text-left">Rower</th>
+                                <th class="py-2 px-4 text-left">Siłownia</th>
+                                <th class="py-2 px-4 text-left">Spalone</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activityBody"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
