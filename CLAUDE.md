@@ -73,11 +73,29 @@ Skopiuj `config.example.js` do `config.js` i uzupełnij wartości z Firebase Con
 
 ### Pozostałe
 
-- **`switchTab(n)`** — przełącza między zakładką "Waga i kalorie" a "Aktywność". Zarządza widocznością `#tab1`/`#tab2` i aktywnym stylem przycisków.
+- **`switchTab(n)`** — przełącza między trzema zakładkami: "Waga i kalorie" (`#tab1`), "Aktywność" (`#tab2`), "Archiwum" (`#tab3`). Otwarcie zakładki Archiwum automatycznie wywołuje `loadMonthlyTab()`.
 
 - **`saveTDEE(val)`** — zapisuje TDEE (dzienne zapotrzebowanie kaloryczne) do `localStorage`, żeby nie trzeba było wpisywać go przy każdym otwarciu. TDEE jest kluczowe dla wykresu bilansu — bez niego nie wiadomo, ile kalorii to "za dużo".
 
 - **`showToast(msg)`** — wyświetla krótkie powiadomienie na dole ekranu. Znika automatycznie po 3 sekundach.
+
+### Archiwum miesięczne
+
+Zakładka "Archiwum" pokazuje aktywność fizyczną zagregowaną per miesiąc (trucht km, rower km, siłownia min, liczba dni). Dane są pre-agregowane w Firestore w kolekcji `monthly_summaries`, żeby uniknąć pobierania całej historii przy każdym otwarciu.
+
+- **`loadMonthlyTab()`** — pobiera wszystkie dokumenty z `monthly_summaries` i renderuje tabelę. Bieżący miesiąc jest zawsze wyliczany na żywo z `weightEntries` (bez odczytu z Firestore) i oznaczony tagiem "bieżący".
+
+- **`renderMonthlyTable(summaries)`** — renderuje tabelę miesięczną z danych przekazanych jako obiekt `{ 'YYYY-MM': { trucht_km, rower_km, silownia_min, days_count } }`.
+
+- **`recomputeAllMonths()`** — logika lazy agregacji:
+  - Jeśli `monthly_summaries` zawiera jakiekolwiek dokumenty: pobiera i zapisuje tylko **poprzedni miesiąc** (aktualny jest zawsze live).
+  - Jeśli `monthly_summaries` jest pusta (pierwsze uruchomienie): pobiera całą historię jednym zapytaniem i agreguje wszystkie przeszłe miesiące naraz.
+
+- **`computeMonthFromEntries(month)`** — wylicza agregat dla podanego miesiąca z danych w pamięci (`weightEntries`). Używane tylko dla bieżącego miesiąca.
+
+- **Ścieżka danych**: `artifacts/weight-tracker-cloud/users/{uid}/monthly_summaries/{YYYY-MM}`
+  - Dokument zawiera: `month`, `trucht_km`, `rower_km`, `silownia_min`, `days_count`, `computed_at`.
+  - Klucz dokumentu to `YYYY-MM`, co umożliwia upsert przez `.set()`.
 
 ## Kluczowe zachowania — pułapki
 
