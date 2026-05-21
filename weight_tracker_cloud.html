@@ -162,6 +162,7 @@
             renderActivityTable();
             renderChart();
             renderScatter();
+            renderHeatmap();
             renderDashboard();
             fillFormForDate(document.getElementById('weightDate').value);
             if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -386,6 +387,69 @@
             const jan1 = new Date(d.getFullYear(), 0, 1);
             const w = Math.ceil((((d - jan1) / 86400000) + 1) / 7);
             return `${d.getFullYear()}-W${String(w).padStart(2, '0')}`;
+        }
+
+        function renderHeatmap() {
+            const container = document.getElementById('heatmapWrap');
+            if (!container) return;
+
+            const tdee = parseInt(document.getElementById('tdeeValue').value) || 2000;
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth();
+
+            const dataMap = {};
+            weightEntries.forEach(e => { dataMap[e.date] = e; });
+
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const startDow = (firstDay.getDay() + 6) % 7;
+            const todayStr = today.toISOString().split('T')[0];
+
+            const monthLabel = today.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
+            document.getElementById('heatmapMonthLabel').textContent =
+                monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+
+            const dayNames = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Nd'];
+            let html = dayNames.map(d => `<div class="hm-hdr">${d}</div>`).join('');
+
+            for (let i = 0; i < startDow; i++) {
+                html += `<div class="hm-cell hm-empty"></div>`;
+            }
+
+            for (let d = 1; d <= lastDay.getDate(); d++) {
+                const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const e = dataMap[dateStr];
+                const isToday = dateStr === todayStr;
+                const isFuture = dateStr > todayStr;
+
+                let cls = 'hm-nodata';
+                let titleParts = [dateStr];
+
+                if (isFuture) {
+                    cls = 'hm-future';
+                } else if (e) {
+                    let bal = null;
+                    if (e.calories) {
+                        bal = Math.round(e.calories - tdee - (e.burnedCalories || 0));
+                        titleParts.push(`bilans: ${bal > 0 ? '+' : ''}${bal} kcal`);
+                    }
+                    if (e.weight) titleParts.push(`waga: ${e.weight} kg`);
+
+                    if (bal !== null) {
+                        if (bal < -500)      cls = 'hm-d3';
+                        else if (bal < -200) cls = 'hm-d2';
+                        else if (bal < 0)    cls = 'hm-d1';
+                        else if (bal < 200)  cls = 'hm-s1';
+                        else if (bal < 500)  cls = 'hm-s2';
+                        else                 cls = 'hm-s3';
+                    }
+                }
+
+                html += `<div class="hm-cell ${cls}${isToday ? ' hm-today' : ''}" title="${titleParts.join(' | ')}"><span>${d}</span></div>`;
+            }
+
+            container.innerHTML = html;
         }
 
         function saveTDEE(val) {
@@ -710,6 +774,23 @@
         input, select { background: #1e293b; color: white; border: 1px solid #334155; padding: 0.5rem; border-radius: 0.5rem; outline: none; }
         input:focus, select:focus { border-color: #3b82f6; }
         select option { background: #1e293b; }
+
+        /* Heatmap */
+        .heatmap-wrap { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .hm-hdr { text-align: center; font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.35; padding-bottom: 3px; }
+        .hm-cell { aspect-ratio: 1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; cursor: default; transition: transform 0.12s, box-shadow 0.12s; }
+        .hm-cell:not(.hm-empty):not(.hm-future):hover { transform: scale(1.18); z-index: 10; box-shadow: 0 0 0 2px rgba(148,163,184,0.35); position: relative; }
+        .hm-cell.hm-empty { visibility: hidden; }
+        .hm-cell.hm-future { background: rgba(15,23,42,0.5); color: transparent; }
+        .hm-cell.hm-nodata { background: #1e293b; color: rgba(148,163,184,0.35); }
+        .hm-cell.hm-d1 { background: #166534; color: #bbf7d0; }
+        .hm-cell.hm-d2 { background: #16a34a; color: #f0fdf4; }
+        .hm-cell.hm-d3 { background: #4ade80; color: #14532d; }
+        .hm-cell.hm-s1 { background: #9f1239; color: #fecdd3; }
+        .hm-cell.hm-s2 { background: #be123c; color: #ffe4e6; }
+        .hm-cell.hm-s3 { background: #f87171; color: #7f1d1d; }
+        .hm-cell.hm-today { outline: 2px solid #3b82f6; outline-offset: 2px; }
+        .hm-legend { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -827,6 +908,21 @@
                         <canvas id="weightChart"></canvas>
                     </div>
                 </div>
+            </div>
+
+            <div class="card">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="font-semibold text-lg">Kalendarz bilansu kcal</h2>
+                        <p id="heatmapMonthLabel" class="text-xs opacity-40 mt-0.5"></p>
+                    </div>
+                    <div class="flex items-center gap-3 text-[10px] font-bold uppercase opacity-50">
+                        <span class="flex items-center gap-1.5"><span class="hm-legend hm-d3"></span>duży deficyt</span>
+                        <span class="flex items-center gap-1.5"><span class="hm-legend hm-s3"></span>duża nadwyżka</span>
+                        <span class="flex items-center gap-1.5"><span class="hm-legend hm-nodata"></span>brak danych</span>
+                    </div>
+                </div>
+                <div id="heatmapWrap" class="heatmap-wrap"></div>
             </div>
 
             <div class="card">
