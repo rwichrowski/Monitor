@@ -282,7 +282,7 @@
             const body = document.getElementById('activityBody');
             if (!body) return;
             const sorted = [...weightEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
-            const rows = sorted.filter(e => e.trucht_km || e.rower_km || e.silownia_min);
+            const rows = sorted; // pokazuj wszystkie dni, nie tylko z aktywnością
 
             const totalTrucht = weightEntries.reduce((s, e) => s + (e.trucht_km || 0), 0);
             const totalRower = weightEntries.reduce((s, e) => s + (e.rower_km || 0), 0);
@@ -293,18 +293,23 @@
             document.getElementById('sumSilownia').textContent = totalSilownia > 0 ? totalSilownia + ' min' : '-';
 
             if (!rows.length) {
-                body.innerHTML = `<tr><td colspan="5" class="py-8 text-center opacity-40 text-sm">Brak danych o aktywności — dodaj aktywność w zakładce Waga</td></tr>`;
+                body.innerHTML = `<tr><td colspan="5" class="py-8 text-center opacity-40 text-sm">Brak danych — dodaj wpisy w zakładce Waga</td></tr>`;
                 return;
             }
-            body.innerHTML = rows.map(e => `
-                <tr class="border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors">
+            body.innerHTML = rows.map(e => {
+                const hasActivity = e.trucht_km || e.rower_km || e.silownia_min;
+                const rowClass = hasActivity
+                    ? 'border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors'
+                    : 'border-b border-slate-700/30 hover:bg-slate-700/10 transition-colors opacity-40';
+                return `
+                <tr class="${rowClass}">
                     <td class="py-3 px-4 text-slate-300">${e.date}</td>
                     <td class="py-3 px-4 font-bold text-blue-400">${e.trucht_km ? e.trucht_km + ' km' : '-'}</td>
                     <td class="py-3 px-4 font-bold text-green-400">${e.rower_km ? e.rower_km + ' km' : '-'}</td>
                     <td class="py-3 px-4 font-bold text-purple-400">${e.silownia_min ? e.silownia_min + ' min' : '-'}</td>
                     <td class="py-3 px-4 font-bold text-orange-400">${e.burnedCalories ? e.burnedCalories + ' kcal' : '-'}</td>
-                </tr>
-            `).join('');
+                </tr>`;
+            }).join('');
         }
 
         function renderChart() {
