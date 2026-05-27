@@ -21,6 +21,7 @@
         let weightEntries = [];
         let chartInstance = null;
         let scatterInstance = null;
+        let caloriesWeightInstance = null;
         let activityAcc = { trucht: 0, rower: 0, silownia: 0 };
         const appId = 'weight-tracker-cloud';
 
@@ -162,6 +163,7 @@
             renderActivityTable();
             renderChart();
             renderScatter();
+            renderCaloriesVsWeight();
             renderHeatmap();
             renderDashboard();
             fillFormForDate(document.getElementById('weightDate').value);
@@ -566,6 +568,110 @@
             });
         }
 
+        function renderCaloriesVsWeight() {
+            const canvas = document.getElementById('caloriesWeightChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (caloriesWeightInstance) caloriesWeightInstance.destroy();
+
+            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const tickColor = isDark ? '#94a3b8' : '#64748b';
+
+            // Grupuj po tygodniu ISO
+            const weekMap = {};
+            weightEntries.forEach(e => {
+                const wk = isoWeekKey(e.date);
+                if (!weekMap[wk]) weekMap[wk] = { weights: [], calories: [] };
+                if (e.weight) weekMap[wk].weights.push(e.weight);
+                if (e.calories) weekMap[wk].calories.push(e.calories);
+            });
+
+            const weeks = Object.keys(weekMap).sort();
+
+            const firstWeights = weeks.length ? weekMap[weeks[0]].weights : [];
+            const startWeight = firstWeights.length
+                ? firstWeights.reduce((a, b) => a + b, 0) / firstWeights.length
+                : null;
+
+            const labels = weeks.map(w => {
+                const m = w.match(/(\d{4})-W(\d+)/);
+                return m ? `T${parseInt(m[2])}/${m[1].slice(2)}` : w;
+            });
+
+            // Zmiana wagi względem tygodnia startowego (średnia tygodnia − średnia startu)
+            const weightChanges = weeks.map(wk => {
+                const ws = weekMap[wk].weights;
+                if (!ws.length || startWeight === null) return null;
+                return +((ws.reduce((a, b) => a + b, 0) / ws.length - startWeight).toFixed(2));
+            });
+
+            // Średnie spożyte kcal w tygodniu
+            const avgCalories = weeks.map(wk => {
+                const cs = weekMap[wk].calories;
+                if (!cs.length) return null;
+                return Math.round(cs.reduce((a, b) => a + b, 0) / cs.length);
+            });
+
+            caloriesWeightInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Zmiana wagi (kg)',
+                            data: weightChanges,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59,130,246,0.1)',
+                            yAxisID: 'y',
+                            tension: 0.3,
+                            pointRadius: 4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Śr. spożyte kcal/dzień',
+                            data: avgCalories,
+                            borderColor: '#f43f5e',
+                            backgroundColor: 'rgba(244,63,94,0.08)',
+                            yAxisID: 'y1',
+                            tension: 0.3,
+                            pointRadius: 4,
+                            spanGaps: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (item) => item.datasetIndex === 0
+                                    ? `Waga: ${item.raw > 0 ? '+' : ''}${item.raw} kg`
+                                    : `Spożyte: ${item.raw} kcal/dzień`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            title: { display: true, text: 'Zmiana wagi (kg)', color: tickColor },
+                            ticks: { color: tickColor }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: 'Śr. kcal spożyte/dzień', color: tickColor },
+                            ticks: { color: tickColor },
+                            grid: { drawOnChartArea: false }
+                        },
+                        x: { ticks: { color: tickColor } }
+                    }
+                }
+            });
+        }
+
         function calcBurnedCalories(activity, quantity) {
             const weight = weightEntries.length > 0
                 ? weightEntries[weightEntries.length - 1].weight
@@ -943,6 +1049,16 @@
                 </div>
                 <div class="h-[280px]">
                     <canvas id="scatterChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-semibold text-lg">Spożyte kcal vs zmiana wagi (tygodniowo)</h2>
+                    <p class="text-xs opacity-40">Średnia dzienna kcal w tygodniu vs zmiana wagi względem startu</p>
+                </div>
+                <div class="h-[280px]">
+                    <canvas id="caloriesWeightChart"></canvas>
                 </div>
             </div>
 
