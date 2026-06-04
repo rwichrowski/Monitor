@@ -23,6 +23,7 @@
         let scatterInstance = null;
         let caloriesWeightInstance = null;
         let activityAcc = { trucht: 0, rower: 0, silownia: 0 };
+        let allHistoryEntries = null; // pełna historia — ładowana na żądanie
         const appId = 'weight-tracker-cloud';
 
         const initFirebase = async () => {
@@ -568,6 +569,28 @@
             });
         }
 
+        async function loadFullHistory() {
+            const btn = document.getElementById('loadHistoryBtn');
+            btn.disabled = true;
+            btn.textContent = 'Ładowanie…';
+            try {
+                const uid = (typeof userId !== 'undefined') ? userId : currentUser.uid;
+                const snap = await db.collection('artifacts').doc(appId)
+                    .collection('users').doc(uid)
+                    .collection('weights')
+                    .orderBy('date')
+                    .get();
+                allHistoryEntries = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                btn.textContent = `Załadowano (${allHistoryEntries.length} wpisów)`;
+                renderCaloriesVsWeight();
+            } catch (e) {
+                btn.disabled = false;
+                btn.textContent = 'Załaduj pełną historię';
+                console.error(e);
+            }
+        }
+        window.loadFullHistory = loadFullHistory;
+
         function renderCaloriesVsWeight() {
             const canvas = document.getElementById('caloriesWeightChart');
             if (!canvas) return;
@@ -577,9 +600,11 @@
             const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             const tickColor = isDark ? '#94a3b8' : '#64748b';
 
+            const sourceEntries = allHistoryEntries ?? weightEntries;
+
             // Grupuj po tygodniu ISO
             const weekMap = {};
-            weightEntries.forEach(e => {
+            sourceEntries.forEach(e => {
                 const wk = isoWeekKey(e.date);
                 if (!weekMap[wk]) weekMap[wk] = { weights: [], calories: [] };
                 if (e.weight) weekMap[wk].weights.push(e.weight);
@@ -1054,8 +1079,14 @@
 
             <div class="card">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="font-semibold text-lg">Spożyte kcal vs zmiana wagi (tygodniowo)</h2>
-                    <p class="text-xs opacity-40">Średnia dzienna kcal w tygodniu vs zmiana wagi względem startu</p>
+                    <div>
+                        <h2 class="font-semibold text-lg">Spożyte kcal vs zmiana wagi (tygodniowo)</h2>
+                        <p class="text-xs opacity-40">Średnia dzienna kcal w tygodniu vs zmiana wagi względem startu</p>
+                    </div>
+                    <button id="loadHistoryBtn" onclick="loadFullHistory()"
+                        class="text-xs px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors disabled:opacity-50">
+                        Załaduj pełną historię
+                    </button>
                 </div>
                 <div class="h-[280px]">
                     <canvas id="caloriesWeightChart"></canvas>
