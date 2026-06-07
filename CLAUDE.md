@@ -10,7 +10,20 @@ Aplikacja służy do **osobistego monitorowania redukcji masy ciała** — użyt
 
 ## Struktura projektu
 
-Cała aplikacja żyje w jednym pliku: `weight_tracker_cloud.html`. Brak procesu budowania — plik otwiera się bezpośrednio w przeglądarce.
+Brak procesu budowania — `weight_tracker_cloud.html` otwiera się bezpośrednio w przeglądarce (`file://`). Kod jest rozbity na zewnętrzne pliki ładowane jako **zwykłe skrypty** (nie moduły ES — te są blokowane z `file://`), więc dzielą globalny scope, a **kolejność ładowania w `<head>` ma znaczenie**:
+
+- `weight_tracker_cloud.html` — tylko markup + tagi `<script>`/`<link>`.
+- `styles.css` — style (w tym heatmapa).
+- `config.js` — klucze Firebase + `userId` (ignorowany przez git).
+- `js/state.js` — globalny stan (zmienne współdzielone); ładowany pierwszy.
+- `js/firebase.js` — `initFirebase`, `startSync`, `addEntry`, `deleteEntry`, `getUid`.
+- `js/ui.js` — formularz, dashboard, tabele, `showToast`.
+- `js/charts.js` — wykresy Chart.js + heatmapa + `loadFullHistory`.
+- `js/activity.js` — kalkulator MET.
+- `js/archive.js` — archiwum miesięczne.
+- `js/main.js` — `saveTDEE`, `switchTab`, `window.onload`; ładowany ostatni.
+
+Funkcje wywoływane z inline'owych `onclick=` w HTML muszą być globalne — deklaracje `function foo()` i przypisania `window.foo = ...` to zapewniają.
 
 ## Konfiguracja Firebase
 
