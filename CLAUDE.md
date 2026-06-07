@@ -23,18 +23,21 @@ const firebaseConfig = {
     projectId: "...",
     ...
 };
+
+// Stały identyfikator użytkownika — ten sam na każdym urządzeniu
+const userId = "twoje-imie-lub-dowolny-string";
 ```
 
-Skopiuj `config.example.js` do `config.js` i uzupełnij wartości z Firebase Console. Aplikacja korzysta z anonimowego logowania i Firestore — użytkownik nie musi zakładać konta, a dane są przypisane do anonimowego `uid` przeglądarki.
+Skopiuj `config.example.js` do `config.js` i uzupełnij wartości z Firebase Console. Aplikacja loguje się do Firebase **anonimowo** (żeby reguły Firestore wymagające uwierzytelnienia przepuściły zapisy), ale dane zapisuje pod **stałym `userId`** z `config.js`. Dzięki temu nie ma progu rejestracji, a jednocześnie te same wpisy są widoczne na każdym urządzeniu. Jeśli `userId` nie zostanie zdefiniowany, dane lądują pod anonimowym `uid` danej przeglądarki (osobne na każdym urządzeniu) — patrz wzorzec `(typeof userId !== 'undefined') ? userId : currentUser.uid` powtarzany przy każdym dostępie do Firestore.
 
 ## Architektura i kluczowe metody
 
 ### Synchronizacja danych
 
-- **`initFirebase()`** — inicjuje połączenie z Firebase i loguje użytkownika anonimowo. Anonimowe auth to celowy wybór: nie chcemy progu rejestracji, ale chcemy trwałości danych między sesjami w tej samej przeglądarce.
+- **`initFirebase()`** — inicjuje połączenie z Firebase, loguje użytkownika anonimowo (`signInAnonymously`) i w callbacku `onAuthStateChanged` uruchamia `startSync()`. Anonimowe auth to celowy wybór: spełnia reguły Firestore wymagające uwierzytelnienia, a jednocześnie nie wymaga rejestracji. Tożsamością danych nie jest jednak anonimowy `uid`, lecz stały `userId` z `config.js` — patrz "Konfiguracja Firebase".
 
-- **`startSync()`** — zakłada nasłuchiwacz `onSnapshot` na kolekcję Firestore ograniczoną do ostatnich 30 dni. Każda zmiana w bazie (lokalnie lub z innego urządzenia) automatycznie odświeża UI bez konieczności odświeżania strony.
-  - Ścieżka danych: `artifacts/weight-tracker-cloud/users/{uid}/weights/{date}`
+- **`startSync()`** — zakłada nasłuchiwacz `onSnapshot` na kolekcję Firestore ograniczoną do ostatnich 30 dni (`where('date', '>=', cutoff)`). Każda zmiana w bazie (lokalnie lub z innego urządzenia) automatycznie odświeża UI bez konieczności odświeżania strony.
+  - Ścieżka danych: `artifacts/weight-tracker-cloud/users/{uid}/weights/{date}`, gdzie `{uid}` to `userId` z configu (lub anonimowy `uid` jako fallback).
   - `{date}` jest ID dokumentu (format `YYYY-MM-DD`), co umożliwia upsert przez `.set()` — ten sam dzień zawsze nadpisuje poprzedni wpis.
 
 ### Zarządzanie wpisami
@@ -59,17 +62,29 @@ Skopiuj `config.example.js` do `config.js` i uzupełnij wartości z Firebase Con
 
 ### Renderowanie UI
 
-- **`updateUI()`** — wywoływana po każdym snapshocie; orkiestruje przerenderowanie tabeli historii, tabeli aktywności, wykresu postępów i wykresu bilansu tygodniowego. Jeden punkt wejścia dla całego odświeżenia UI.
+- **`updateUI()`** — wywoływana po każdym snapshocie; orkiestruje przerenderowanie tabeli historii, tabeli aktywności, heatmapy, wykresu postępów oraz obu wykresów zależności kalorie–waga. Jeden punkt wejścia dla całego odświeżenia UI.
 
 - **`renderTable()`** — tabela historii wpisów posortowana od najnowszego. Pokazuje wagę, kalorie spożyte i spalone.
 
 - **`renderActivityTable()`** — tabela aktywności fizycznych w zakładce "Aktywność". Filtruje tylko dni z co najmniej jedną aktywnością, liczy sumy za 30 dni (trucht km, rower km, siłownia min) i wyświetla je w kafelkach podsumowania nad tabelą.
 
+- **`renderHeatmap()`** — kalendarzowa heatmapa aktywności w zakładce "Aktywność": każdy dzień to kafelek o intensywności zależnej od tego, czy (i ile) danego dnia był trening.
+
 - **`renderChart()`** — wykres słupkowo-liniowy (Chart.js) z podwójną osią Y: waga na lewej (`y`), kalorie netto i spalone na prawej (`y1`). Skala wagi jest przycinana do zakresu danych ±2 kg, żeby zmiany były czytelne.
 
 - **`renderScatter()`** — wykres tygodniowy pokazujący skumulowany bilans kaloryczny (kcal powyżej/poniżej TDEE) na tle zmiany wagi względem tygodnia startowego. Pozwala ocenić, czy teoria kaloryczna przekłada się na praktykę — spodziewamy się korelacji między ujemnym bilansem a spadkiem wagi.
 
-- **`isoWeekKey(dateStr)`** — zamienia datę na klucz tygodnia ISO (`YYYY-Www`), używany do grupowania danych w wykresie tygodniowym.
+- **`renderCaloriesVsWeight()`** — wykres "Spożyte kcal vs zmiana wagi" oparty o **średnią kroczącą 7 dni**, z punktem na każdy dzień kalendarzowy (a nie kubełkowanie tygodniowe):
+  - Waga dnia `D` = średnia z dostępnych pomiarów w oknie `[D−6 … D]`; spożyte kcal dnia `D` = średnia z okna `[D−7 … D−1]`. Okno kcal jest **przesunięte o jeden dzień**, bo kalorie bieżącego dnia wpisuje się zwykle wieczorem lub nazajutrz.
+  - Zmiana wagi liczona względem pierwszej policzalnej średniej kroczącej (baseline). Luki nie wywracają średniej (uśrednianie po dostępnych wpisach, `spanGaps: true`).
+  - Źródłem jest `allHistoryEntries ?? weightEntries` — domyślnie tylko 30 dni, a po kliknięciu "Załaduj pełną historię" pełen zakres (patrz `loadFullHistory()`). Bez pełnej historii najwcześniejsze ~6 punktów liczy się z niepełnego okna.
+  - Gdy w ostatnich 30 dniach brakuje pomiarów wagi, nad wykresem pojawia się ostrzeżenie (`#caloriesWeightWarning`) z listą brakujących dni.
+
+- **`loadFullHistory()`** — jednorazowo pobiera całą kolekcję `weights` (bez limitu 30 dni), zapisuje do `allHistoryEntries` i przerysowuje `renderCaloriesVsWeight()`. Wywoływana przyciskiem w karcie wykresu.
+
+- **`allHistoryEntries`** — pełna historia wpisów ładowana na żądanie; `null` dopóki użytkownik nie kliknie "Załaduj pełną historię". Domyślnie wykresy korzystają z 30-dniowego `weightEntries`.
+
+- **`isoWeekKey(dateStr)`** — zamienia datę na klucz tygodnia ISO (`YYYY-Www`), używany do grupowania danych w wykresie tygodniowym (`renderScatter`).
 
 ### Pozostałe
 
@@ -101,5 +116,7 @@ Zakładka "Archiwum" pokazuje aktywność fizyczną zagregowaną per miesiąc (t
 
 - `.set()` zamiast `.add()` to celowe — każda data jest unikalna, ponowny zapis tego samego dnia to aktualizacja, nie nowy dokument.
 - Formularz po zapisie uzupełnia się danymi z bazy (przez `onSnapshot → fillFormForDate`), a nie zostaje wyczyszczony — użytkownik widzi co faktycznie wylądowało w Firestore.
-- Dane są ograniczone do ostatnich 30 dni w `startSync()` — celowe ograniczenie, żeby nie ładować całej historii przy każdym otwarciu.
+- Dane są ograniczone do ostatnich 30 dni w `startSync()` — celowe ograniczenie, żeby nie ładować całej historii przy każdym otwarciu. Pełną historię ciągnie się osobno przez `loadFullHistory()` tylko na żądanie.
 - `activityAcc` musi być zsynchronizowany z datą formularza — przy każdej zmianie daty (`fillFormForDate`) jest resetowany do wartości z istniejącego wpisu.
+- Tożsamością danych w Firestore jest stały `userId` z `config.js`, a nie anonimowy `uid` — każdy dostęp do bazy używa wzorca `(typeof userId !== 'undefined') ? userId : currentUser.uid`. Zmiana `userId` = inny zestaw danych.
+- `renderCaloriesVsWeight()` używa średniej kroczącej 7 dni, więc pełne okno dla najwcześniejszego punktu wymaga danych z ~6 dni przed nim. Przy domyślnym 30-dniowym `weightEntries` pierwsze punkty są liczone z niepełnego okna — dopiero `loadFullHistory()` daje komplet.

@@ -602,40 +602,58 @@
 
             const sourceEntries = allHistoryEntries ?? weightEntries;
 
-            // Grupuj po tygodniu ISO
-            const weekMap = {};
-            sourceEntries.forEach(e => {
-                const wk = isoWeekKey(e.date);
-                if (!weekMap[wk]) weekMap[wk] = { weights: [], calories: [] };
-                if (e.weight) weekMap[wk].weights.push(e.weight);
-                if (e.calories) weekMap[wk].calories.push(e.calories);
-            });
+            // Indeks wpisów po dacie (YYYY-MM-DD) — dla szybkiego wglądu po dniu
+            const byDate = {};
+            sourceEntries.forEach(e => { byDate[e.date] = e; });
 
-            const weeks = Object.keys(weekMap).sort();
+            const datesPresent = Object.keys(byDate).sort();
+            const warnDiv = document.getElementById('caloriesWeightWarning');
+            if (!datesPresent.length) {
+                if (warnDiv) warnDiv.classList.add('hidden');
+                return;
+            }
 
-            const firstWeights = weeks.length ? weekMap[weeks[0]].weights : [];
-            const startWeight = firstWeights.length
-                ? firstWeights.reduce((a, b) => a + b, 0) / firstWeights.length
-                : null;
+            // Ciągły zakres dni kalendarzowych: od najstarszego wpisu do dziś
+            const toISO = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const startDay = new Date(datesPresent[0] + 'T00:00:00');
+            const endDay = new Date(); endDay.setHours(0, 0, 0, 0);
+            const days = [];
+            for (let d = new Date(startDay); d <= endDay; d.setDate(d.getDate() + 1)) days.push(toISO(d));
 
-            const labels = weeks.map(w => {
-                const m = w.match(/(\d{4})-W(\d+)/);
-                return m ? `T${parseInt(m[2])}/${m[1].slice(2)}` : w;
-            });
+            // Średnia pola w oknie [anchor−back ... anchor−front] (dni wstecz), z dostępnych wpisów
+            const avgInWindow = (anchorIdx, front, back, field) => {
+                let sum = 0, n = 0;
+                for (let k = front; k <= back; k++) {
+                    const e = byDate[days[anchorIdx - k]];
+                    if (e && e[field]) { sum += e[field]; n++; }
+                }
+                return n ? sum / n : null;
+            };
 
-            // Zmiana wagi względem tygodnia startowego (średnia tygodnia − średnia startu)
-            const weightChanges = weeks.map(wk => {
-                const ws = weekMap[wk].weights;
-                if (!ws.length || startWeight === null) return null;
-                return +((ws.reduce((a, b) => a + b, 0) / ws.length - startWeight).toFixed(2));
-            });
+            // Waga: średnia z ostatnich 7 dni [D−6 … D]; kcal: 7 dni do wczoraj [D−7 … D−1]
+            const weightAvg = days.map((_, i) => avgInWindow(i, 0, 6, 'weight'));
+            const kcalAvg = days.map((_, i) => avgInWindow(i, 1, 7, 'calories'));
 
-            // Średnie spożyte kcal w tygodniu
-            const avgCalories = weeks.map(wk => {
-                const cs = weekMap[wk].calories;
-                if (!cs.length) return null;
-                return Math.round(cs.reduce((a, b) => a + b, 0) / cs.length);
-            });
+            const baseIdx = weightAvg.findIndex(v => v !== null);
+            const baseWeight = baseIdx >= 0 ? weightAvg[baseIdx] : null;
+
+            const labels = days.map(d => `${d.slice(8, 10)}.${d.slice(5, 7)}`);
+            const weightChanges = weightAvg.map(v =>
+                (v === null || baseWeight === null) ? null : +((v - baseWeight).toFixed(2)));
+            const avgCalories = kcalAvg.map(v => v === null ? null : Math.round(v));
+
+            // Ostrzeżenie o brakujących pomiarach wagi w ostatnich 30 dniach
+            if (warnDiv) {
+                const missing = days.slice(-30).filter(d => !(byDate[d] && byDate[d].weight));
+                if (missing.length) {
+                    const shown = missing.slice(-7).map(d => `${d.slice(8, 10)}.${d.slice(5, 7)}`);
+                    const more = missing.length > shown.length ? ` (+${missing.length - shown.length} wcześniej)` : '';
+                    warnDiv.textContent = `Brakuje wagi z ${missing.length} dni: ${shown.join(', ')}${more}. Uzupełnij, aby średnia krocząca była dokładna.`;
+                    warnDiv.classList.remove('hidden');
+                } else {
+                    warnDiv.classList.add('hidden');
+                }
+            }
 
             caloriesWeightInstance = new Chart(ctx, {
                 type: 'line',
@@ -1080,14 +1098,15 @@
             <div class="card">
                 <div class="flex items-center justify-between mb-4">
                     <div>
-                        <h2 class="font-semibold text-lg">Spożyte kcal vs zmiana wagi (tygodniowo)</h2>
-                        <p class="text-xs opacity-40">Średnia dzienna kcal w tygodniu vs zmiana wagi względem startu</p>
+                        <h2 class="font-semibold text-lg">Spożyte kcal vs zmiana wagi (śr. krocząca 7 dni)</h2>
+                        <p class="text-xs opacity-40">Waga: średnia z 7 dni do dziś · kcal: średnia z 7 dni do wczoraj · zmiana wagi względem startu</p>
                     </div>
                     <button id="loadHistoryBtn" onclick="loadFullHistory()"
                         class="text-xs px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors disabled:opacity-50">
                         Załaduj pełną historię
                     </button>
                 </div>
+                <div id="caloriesWeightWarning" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3"></div>
                 <div class="h-[280px]">
                     <canvas id="caloriesWeightChart"></canvas>
                 </div>
