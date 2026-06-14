@@ -192,6 +192,19 @@
             </div>
 
             <div class="card">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="font-semibold text-lg">Spożyte kcal vs zmiana wagi (śr. krocząca 3 dni)</h2>
+                        <p class="text-xs opacity-40">Waga: średnia z 3 dni do dziś · kcal: średnia z 3 dni do wczoraj · zmiana wagi względem startu</p>
+                    </div>
+                </div>
+                <div id="caloriesWeight3Warning" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3"></div>
+                <div class="h-[280px]">
+                    <canvas id="caloriesWeight3Chart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
                 <h2 class="font-semibold mb-4 text-lg">Historia wpisów</h2>
                 <div class="max-h-64 overflow-y-auto">
                     <table class="w-full text-sm">

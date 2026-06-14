@@ -264,6 +264,7 @@ async function loadFullHistory() {
         allHistoryEntries = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         btn.textContent = `Załadowano (${allHistoryEntries.length} wpisów)`;
         renderCaloriesVsWeight();
+        renderCaloriesVsWeight3();
     } catch (e) {
         btn.disabled = false;
         btn.textContent = 'Załaduj pełną historię';
@@ -273,10 +274,30 @@ async function loadFullHistory() {
 window.loadFullHistory = loadFullHistory;
 
 function renderCaloriesVsWeight() {
-    const canvas = document.getElementById('caloriesWeightChart');
-    if (!canvas) return;
+    caloriesWeightInstance = drawCaloriesVsWeight({
+        canvasId: 'caloriesWeightChart',
+        warnId: 'caloriesWeightWarning',
+        windowDays: 7,
+        prevInstance: caloriesWeightInstance
+    });
+}
+
+function renderCaloriesVsWeight3() {
+    caloriesWeight3Instance = drawCaloriesVsWeight({
+        canvasId: 'caloriesWeight3Chart',
+        warnId: 'caloriesWeight3Warning',
+        windowDays: 3,
+        prevInstance: caloriesWeight3Instance
+    });
+}
+
+// Wspólny silnik wykresu "Spożyte kcal vs zmiana wagi" — średnia krocząca o
+// konfigurowalnym oknie (windowDays). Zwraca utworzoną instancję Chart.js (lub null).
+function drawCaloriesVsWeight({ canvasId, warnId, windowDays, prevInstance }) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
     const ctx = canvas.getContext('2d');
-    if (caloriesWeightInstance) caloriesWeightInstance.destroy();
+    if (prevInstance) prevInstance.destroy();
 
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const tickColor = isDark ? '#94a3b8' : '#64748b';
@@ -288,10 +309,10 @@ function renderCaloriesVsWeight() {
     sourceEntries.forEach(e => { byDate[e.date] = e; });
 
     const datesPresent = Object.keys(byDate).sort();
-    const warnDiv = document.getElementById('caloriesWeightWarning');
+    const warnDiv = document.getElementById(warnId);
     if (!datesPresent.length) {
         if (warnDiv) warnDiv.classList.add('hidden');
-        return;
+        return null;
     }
 
     // Ciągły zakres dni kalendarzowych: od najstarszego wpisu do dziś
@@ -311,9 +332,9 @@ function renderCaloriesVsWeight() {
         return n ? sum / n : null;
     };
 
-    // Waga: średnia z ostatnich 7 dni [D−6 … D]; kcal: 7 dni do wczoraj [D−7 … D−1]
-    const weightAvg = days.map((_, i) => avgInWindow(i, 0, 6, 'weight'));
-    const kcalAvg = days.map((_, i) => avgInWindow(i, 1, 7, 'calories'));
+    // Waga: średnia z okna [D−(windowDays−1) … D]; kcal: okno przesunięte o dzień [D−windowDays … D−1]
+    const weightAvg = days.map((_, i) => avgInWindow(i, 0, windowDays - 1, 'weight'));
+    const kcalAvg = days.map((_, i) => avgInWindow(i, 1, windowDays, 'calories'));
 
     const baseIdx = weightAvg.findIndex(v => v !== null);
     const baseWeight = baseIdx >= 0 ? weightAvg[baseIdx] : null;
@@ -336,7 +357,7 @@ function renderCaloriesVsWeight() {
         }
     }
 
-    caloriesWeightInstance = new Chart(ctx, {
+    return new Chart(ctx, {
         type: 'line',
         data: {
             labels,

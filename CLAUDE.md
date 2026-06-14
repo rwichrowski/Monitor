@@ -87,13 +87,15 @@ Skopiuj `config.example.js` do `config.js` i uzupełnij wartości z Firebase Con
 
 - **`renderScatter()`** — wykres tygodniowy pokazujący skumulowany bilans kaloryczny (kcal powyżej/poniżej TDEE) na tle zmiany wagi względem tygodnia startowego. Pozwala ocenić, czy teoria kaloryczna przekłada się na praktykę — spodziewamy się korelacji między ujemnym bilansem a spadkiem wagi.
 
-- **`renderCaloriesVsWeight()`** — wykres "Spożyte kcal vs zmiana wagi" oparty o **średnią kroczącą 7 dni**, z punktem na każdy dzień kalendarzowy (a nie kubełkowanie tygodniowe):
-  - Waga dnia `D` = średnia z dostępnych pomiarów w oknie `[D−6 … D]`; spożyte kcal dnia `D` = średnia z okna `[D−7 … D−1]`. Okno kcal jest **przesunięte o jeden dzień**, bo kalorie bieżącego dnia wpisuje się zwykle wieczorem lub nazajutrz.
+- **`drawCaloriesVsWeight({ canvasId, warnId, windowDays, prevInstance })`** — wspólny silnik wykresu "Spożyte kcal vs zmiana wagi" oparty o **średnią kroczącą** o oknie `windowDays`, z punktem na każdy dzień kalendarzowy (a nie kubełkowanie tygodniowe). Niszczy `prevInstance` i zwraca nową instancję Chart.js (lub `null`, gdy brak canvasu/danych).
+  - Waga dnia `D` = średnia z dostępnych pomiarów w oknie `[D−(windowDays−1) … D]`; spożyte kcal dnia `D` = średnia z okna `[D−windowDays … D−1]`. Okno kcal jest **przesunięte o jeden dzień**, bo kalorie bieżącego dnia wpisuje się zwykle wieczorem lub nazajutrz.
   - Zmiana wagi liczona względem pierwszej policzalnej średniej kroczącej (baseline). Luki nie wywracają średniej (uśrednianie po dostępnych wpisach, `spanGaps: true`).
-  - Źródłem jest `allHistoryEntries ?? weightEntries` — domyślnie tylko 30 dni, a po kliknięciu "Załaduj pełną historię" pełen zakres (patrz `loadFullHistory()`). Bez pełnej historii najwcześniejsze ~6 punktów liczy się z niepełnego okna.
-  - Gdy w ostatnich 30 dniach brakuje pomiarów wagi, nad wykresem pojawia się ostrzeżenie (`#caloriesWeightWarning`) z listą brakujących dni.
+  - Źródłem jest `allHistoryEntries ?? weightEntries` — domyślnie tylko 30 dni, a po kliknięciu "Załaduj pełną historię" pełen zakres (patrz `loadFullHistory()`). Bez pełnej historii najwcześniejsze ~`windowDays−1` punktów liczy się z niepełnego okna.
+  - Gdy w ostatnich 30 dniach brakuje pomiarów wagi, nad wykresem pojawia się ostrzeżenie (`warnId`) z listą brakujących dni.
 
-- **`loadFullHistory()`** — jednorazowo pobiera całą kolekcję `weights` (bez limitu 30 dni), zapisuje do `allHistoryEntries` i przerysowuje `renderCaloriesVsWeight()`. Wywoływana przyciskiem w karcie wykresu.
+- **`renderCaloriesVsWeight()`** / **`renderCaloriesVsWeight3()`** — cienkie wrappery na `drawCaloriesVsWeight()`: pierwszy rysuje wariant **7-dniowy** (`#caloriesWeightChart`, `caloriesWeightInstance`), drugi **3-dniowy** (`#caloriesWeight3Chart`, `caloriesWeight3Instance`). Oba czytają z tego samego źródła danych, więc "Załaduj pełną historię" odświeża je naraz.
+
+- **`loadFullHistory()`** — jednorazowo pobiera całą kolekcję `weights` (bez limitu 30 dni), zapisuje do `allHistoryEntries` i przerysowuje oba wykresy średniej kroczącej (`renderCaloriesVsWeight()` + `renderCaloriesVsWeight3()`). Wywoływana przyciskiem w karcie wykresu 7-dniowego.
 
 - **`allHistoryEntries`** — pełna historia wpisów ładowana na żądanie; `null` dopóki użytkownik nie kliknie "Załaduj pełną historię". Domyślnie wykresy korzystają z 30-dniowego `weightEntries`.
 

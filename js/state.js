@@ -6,6 +6,7 @@ let weightEntries = [];
 let chartInstance = null;
 let scatterInstance = null;
 let caloriesWeightInstance = null;
+let caloriesWeight3Instance = null;
 let activityAcc = { trucht: 0, rower: 0, silownia: 0 };
 let allHistoryEntries = null; // pełna historia — ładowana na żądanie
 const appId = 'weight-tracker-cloud';
