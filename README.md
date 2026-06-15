@@ -10,7 +10,7 @@ Dane synchronizują się przez Firebase (Firestore), więc te same wpisy masz na
 - **Kalkulator spalonych kalorii** — przelicza trucht (km), rower (km) i siłownię (min) na kcal metodą MET × waga × czas, biorąc Twoją aktualną wagę.
 - **Wykres postępów** — waga vs kalorie netto/spalone na podwójnej osi.
 - **Spożyte kcal vs zmiana wagi** — średnia krocząca 7 dni: punkt na każdy dzień, waga z 7 dni do dziś zestawiona ze średnim spożyciem kcal z 7 dni do wczoraj (kcal są przesunięte o dzień, bo wpisuje się je zwykle wieczorem lub nazajutrz). Ostrzega, gdy brakuje pomiarów wagi.
-- **Zakładka Aktywność** — tabela treningów + podsumowanie 30 dni (km truchtu, km roweru, minuty siłowni), w tym heatmapa.
+- **Zakładka Aktywność** — tabela treningów + podsumowanie 30 dni (km truchtu, km roweru, minuty siłowni).
 - **Archiwum miesięczne** — aktywność zagregowana per miesiąc, pre-liczona w Firestore, żeby nie ciągnąć całej historii.
 
 ## Stack

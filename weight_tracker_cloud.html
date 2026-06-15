@@ -136,7 +136,16 @@
                 </div>
 
                 <div class="card md:col-span-2">
-                    <h2 class="font-semibold mb-4 text-lg">Wykres postępów</h2>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="font-semibold text-lg">Wykres postępów</h2>
+                        <div class="flex items-center gap-2 text-xs opacity-60">
+                            <label for="tdeeValue" class="uppercase font-bold">TDEE</label>
+                            <input type="number" id="tdeeValue" step="50" placeholder="2000"
+                                class="w-24 text-right"
+                                onchange="saveTDEE(this.value); updateUI()">
+                            <span>kcal/dzień</span>
+                        </div>
+                    </div>
                     <div class="h-[250px]">
                         <canvas id="weightChart"></canvas>
                     </div>
@@ -171,37 +180,6 @@
                         </thead>
                         <tbody id="historyBody"></tbody>
                     </table>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="flex items-center justify-between mb-4">
-                    <div>
-                        <h2 class="font-semibold text-lg">Kalendarz bilansu kcal</h2>
-                        <p id="heatmapMonthLabel" class="text-xs opacity-40 mt-0.5"></p>
-                    </div>
-                    <div class="flex items-center gap-3 text-[10px] font-bold uppercase opacity-50">
-                        <span class="flex items-center gap-1.5"><span class="hm-legend hm-d3"></span>duży deficyt</span>
-                        <span class="flex items-center gap-1.5"><span class="hm-legend hm-s3"></span>duża nadwyżka</span>
-                        <span class="flex items-center gap-1.5"><span class="hm-legend hm-nodata"></span>brak danych</span>
-                    </div>
-                </div>
-                <div id="heatmapWrap" class="heatmap-wrap"></div>
-            </div>
-
-            <div class="card">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="font-semibold text-lg">Bilans kalorii vs zmiana wagi (tygodniowo)</h2>
-                    <div class="flex items-center gap-2 text-xs opacity-60">
-                        <label for="tdeeValue" class="uppercase font-bold">TDEE</label>
-                        <input type="number" id="tdeeValue" step="50" placeholder="2000"
-                            class="w-24 text-right"
-                            onchange="saveTDEE(this.value); renderScatter()">
-                        <span>kcal/dzień</span>
-                    </div>
-                </div>
-                <div class="h-[280px]">
-                    <canvas id="scatterChart"></canvas>
                 </div>
             </div>
 

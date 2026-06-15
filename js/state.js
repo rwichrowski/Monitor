@@ -4,7 +4,6 @@ let auth, db;
 let currentUser = null;
 let weightEntries = [];
 let chartInstance = null;
-let scatterInstance = null;
 let caloriesWeightInstance = null;
 let caloriesWeight3Instance = null;
 let activityAcc = { trucht: 0, rower: 0, silownia: 0 };

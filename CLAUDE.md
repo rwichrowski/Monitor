@@ -13,12 +13,12 @@ Aplikacja służy do **osobistego monitorowania redukcji masy ciała** — użyt
 Brak procesu budowania — `weight_tracker_cloud.html` otwiera się bezpośrednio w przeglądarce (`file://`). Kod jest rozbity na zewnętrzne pliki ładowane jako **zwykłe skrypty** (nie moduły ES — te są blokowane z `file://`), więc dzielą globalny scope, a **kolejność ładowania w `<head>` ma znaczenie**:
 
 - `weight_tracker_cloud.html` — tylko markup + tagi `<script>`/`<link>`.
-- `styles.css` — style (w tym heatmapa).
+- `styles.css` — style.
 - `config.js` — klucze Firebase + `userId` (ignorowany przez git).
 - `js/state.js` — globalny stan (zmienne współdzielone); ładowany pierwszy.
 - `js/firebase.js` — `initFirebase`, `startSync`, `addEntry`, `deleteEntry`, `getUid`.
 - `js/ui.js` — formularz, dashboard, tabele, `showToast`.
-- `js/charts.js` — wykresy Chart.js + heatmapa + `loadFullHistory`.
+- `js/charts.js` — wykresy Chart.js + `loadFullHistory`.
 - `js/activity.js` — kalkulator MET.
 - `js/archive.js` — archiwum miesięczne.
 - `js/main.js` — `saveTDEE`, `switchTab`, `window.onload`; ładowany ostatni.
@@ -75,17 +75,14 @@ Skopiuj `config.example.js` do `config.js` i uzupełnij wartości z Firebase Con
 
 ### Renderowanie UI
 
-- **`updateUI()`** — wywoływana po każdym snapshocie; orkiestruje przerenderowanie tabeli historii, tabeli aktywności, heatmapy, wykresu postępów oraz obu wykresów zależności kalorie–waga. Jeden punkt wejścia dla całego odświeżenia UI.
+- **`updateUI()`** — wywoływana po każdym snapshocie; orkiestruje przerenderowanie tabeli historii, tabeli aktywności, wykresu postępów oraz obu wykresów zależności kalorie–waga. Jeden punkt wejścia dla całego odświeżenia UI.
 
 - **`renderTable()`** — tabela historii wpisów posortowana od najnowszego. Pokazuje wagę, kalorie spożyte i spalone.
 
 - **`renderActivityTable()`** — tabela aktywności fizycznych w zakładce "Aktywność". Filtruje tylko dni z co najmniej jedną aktywnością, liczy sumy za 30 dni (trucht km, rower km, siłownia min) i wyświetla je w kafelkach podsumowania nad tabelą.
 
-- **`renderHeatmap()`** — kalendarzowa heatmapa aktywności w zakładce "Aktywność": każdy dzień to kafelek o intensywności zależnej od tego, czy (i ile) danego dnia był trening.
 
 - **`renderChart()`** — wykres słupkowo-liniowy (Chart.js) z podwójną osią Y: waga na lewej (`y`), kalorie netto i spalone na prawej (`y1`). Skala wagi jest przycinana do zakresu danych ±2 kg, żeby zmiany były czytelne.
-
-- **`renderScatter()`** — wykres tygodniowy pokazujący skumulowany bilans kaloryczny (kcal powyżej/poniżej TDEE) na tle zmiany wagi względem tygodnia startowego. Pozwala ocenić, czy teoria kaloryczna przekłada się na praktykę — spodziewamy się korelacji między ujemnym bilansem a spadkiem wagi.
 
 - **`drawCaloriesVsWeight({ canvasId, warnId, windowDays, prevInstance })`** — wspólny silnik wykresu "Spożyte kcal vs zmiana wagi" oparty o **średnią kroczącą** o oknie `windowDays`, z punktem na każdy dzień kalendarzowy (a nie kubełkowanie tygodniowe). Niszczy `prevInstance` i zwraca nową instancję Chart.js (lub `null`, gdy brak canvasu/danych).
   - Waga dnia `D` = średnia z dostępnych pomiarów w oknie `[D−(windowDays−1) … D]`; spożyte kcal dnia `D` = średnia z okna `[D−windowDays … D−1]`. Okno kcal jest **przesunięte o jeden dzień**, bo kalorie bieżącego dnia wpisuje się zwykle wieczorem lub nazajutrz.
@@ -99,13 +96,11 @@ Skopiuj `config.example.js` do `config.js` i uzupełnij wartości z Firebase Con
 
 - **`allHistoryEntries`** — pełna historia wpisów ładowana na żądanie; `null` dopóki użytkownik nie kliknie "Załaduj pełną historię". Domyślnie wykresy korzystają z 30-dniowego `weightEntries`.
 
-- **`isoWeekKey(dateStr)`** — zamienia datę na klucz tygodnia ISO (`YYYY-Www`), używany do grupowania danych w wykresie tygodniowym (`renderScatter`).
-
 ### Pozostałe
 
 - **`switchTab(n)`** — przełącza między trzema zakładkami: "Waga i kalorie" (`#tab1`), "Aktywność" (`#tab2`), "Archiwum" (`#tab3`). Otwarcie zakładki Archiwum automatycznie wywołuje `loadMonthlyTab()`.
 
-- **`saveTDEE(val)`** — zapisuje TDEE (dzienne zapotrzebowanie kaloryczne) do `localStorage`, żeby nie trzeba było wpisywać go przy każdym otwarciu. TDEE jest kluczowe dla wykresu bilansu — bez niego nie wiadomo, ile kalorii to "za dużo".
+- **`saveTDEE(val)`** — zapisuje TDEE (dzienne zapotrzebowanie kaloryczne) do `localStorage`, żeby nie trzeba było wpisywać go przy każdym otwarciu. TDEE jest kluczowe dla wykresu postępów i kafelka dashboardu — bez niego nie wiadomo, ile kalorii to "za dużo". Pole `#tdeeValue` mieszka w nagłówku karty "Wykres postępów", a jego `onchange` woła `updateUI()`, żeby odświeżyć wszystkie zależne widoki.
 
 - **`showToast(msg)`** — wyświetla krótkie powiadomienie na dole ekranu. Znika automatycznie po 3 sekundach.
 

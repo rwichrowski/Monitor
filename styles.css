@@ -4,20 +4,3 @@ body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fa
 input, select { background: #1e293b; color: white; border: 1px solid #334155; padding: 0.5rem; border-radius: 0.5rem; outline: none; }
 input:focus, select:focus { border-color: #3b82f6; }
 select option { background: #1e293b; }
-
-/* Heatmap */
-.heatmap-wrap { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.hm-hdr { text-align: center; font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.35; padding-bottom: 3px; }
-.hm-cell { aspect-ratio: 1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; cursor: default; transition: transform 0.12s, box-shadow 0.12s; }
-.hm-cell:not(.hm-empty):not(.hm-future):hover { transform: scale(1.18); z-index: 10; box-shadow: 0 0 0 2px rgba(148,163,184,0.35); position: relative; }
-.hm-cell.hm-empty { visibility: hidden; }
-.hm-cell.hm-future { background: rgba(15,23,42,0.5); color: transparent; }
-.hm-cell.hm-nodata { background: #1e293b; color: rgba(148,163,184,0.35); }
-.hm-cell.hm-d1 { background: #166534; color: #bbf7d0; }
-.hm-cell.hm-d2 { background: #16a34a; color: #f0fdf4; }
-.hm-cell.hm-d3 { background: #4ade80; color: #14532d; }
-.hm-cell.hm-s1 { background: #9f1239; color: #fecdd3; }
-.hm-cell.hm-s2 { background: #be123c; color: #ffe4e6; }
-.hm-cell.hm-s3 { background: #f87171; color: #7f1d1d; }
-.hm-cell.hm-today { outline: 2px solid #3b82f6; outline-offset: 2px; }
-.hm-legend { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }

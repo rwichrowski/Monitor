@@ -37,10 +37,8 @@ function updateUI() {
     renderTable();
     renderActivityTable();
     renderChart();
-    renderScatter();
     renderCaloriesVsWeight();
     renderCaloriesVsWeight3();
-    renderHeatmap();
     renderDashboard();
     fillFormForDate(document.getElementById('weightDate').value);
     if (typeof lucide !== 'undefined') lucide.createIcons();
