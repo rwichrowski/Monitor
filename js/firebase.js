@@ -57,11 +57,9 @@ const startSync = () => {
 window.addEntry = async () => {
     const weightInput = document.getElementById('weightValue');
     const caloriesInput = document.getElementById('caloriesValue');
-    const burnedInput = document.getElementById('burnedCaloriesValue');
     const dateInput = document.getElementById('weightDate');
     const weight = parseFloat(weightInput.value);
     const calories = parseInt(caloriesInput.value);
-    const burnedCalories = parseInt(burnedInput.value);
     const date = dateInput.value;
 
     if (!currentUser || isNaN(weight) || !date) {
@@ -71,19 +69,53 @@ window.addEntry = async () => {
 
     try {
         const uid = (typeof userId !== 'undefined') ? userId : currentUser.uid;
+        // merge: aktywność dnia (zakładka 2) zapisywana osobno — nie nadpisujemy jej
         await db.collection('artifacts').doc(appId)
             .collection('users').doc(uid)
             .collection('weights').doc(date).set({
                 date,
                 weight,
                 calories: isNaN(calories) ? null : calories,
+                timestamp: Date.now()
+            }, { merge: true });
+        showToast("Zapisano!");
+    } catch (e) {
+        showToast("Błąd zapisu");
+    }
+};
+
+window.saveActivity = async () => {
+    const dateInput = document.getElementById('activityDate');
+    const burnedInput = document.getElementById('burnedCaloriesValue');
+    const pullupsInput = document.getElementById('pullupsValue');
+    const pushupsInput = document.getElementById('pushupsValue');
+    const date = dateInput.value;
+    const burnedCalories = parseInt(burnedInput.value);
+    const pullups = parseInt(pullupsInput.value);
+    const pushups = parseInt(pushupsInput.value);
+
+    if (!currentUser || !date) {
+        showToast("Wybierz datę");
+        return;
+    }
+
+    try {
+        const uid = (typeof userId !== 'undefined') ? userId : currentUser.uid;
+        // merge: nie nadpisujemy wagi/kalorii zapisanych w zakładce 1.
+        // Spalone kalorie liczone tylko z truchtu/roweru/siłowni — podciągnięcia i pompki ich nie zwiększają.
+        await db.collection('artifacts').doc(appId)
+            .collection('users').doc(uid)
+            .collection('weights').doc(date).set({
+                date,
                 burnedCalories: isNaN(burnedCalories) ? null : burnedCalories,
                 trucht_km: activityAcc.trucht || null,
                 rower_km: activityAcc.rower || null,
                 silownia_min: activityAcc.silownia || null,
+                podciagniecia: isNaN(pullups) ? null : pullups,
+                pompki: isNaN(pushups) ? null : pushups,
                 timestamp: Date.now()
-            });
-        showToast("Zapisano!");
+            }, { merge: true });
+        showToast("Zapisano aktywność!");
     } catch (e) {
         showToast("Błąd zapisu");
     }

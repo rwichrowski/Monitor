@@ -1,36 +1,52 @@
 // Renderowanie UI: formularz, dashboard, tabele i powiadomienia.
 
-function updateActivityDisplay() {
-    const parts = [];
-    if (activityAcc.trucht > 0) parts.push(`Trucht: ${activityAcc.trucht} km`);
-    if (activityAcc.rower > 0) parts.push(`Rower: ${activityAcc.rower} km`);
-    if (activityAcc.silownia > 0) parts.push(`Siłownia: ${activityAcc.silownia} min`);
-    const el = document.getElementById('activityDisplay');
-    if (el) el.textContent = parts.length ? parts.join(' · ') : '';
-}
-
 function fillFormForDate(date) {
     const entry = weightEntries.find(e => e.date === date);
     const weightInput = document.getElementById('weightValue');
     const caloriesInput = document.getElementById('caloriesValue');
-    const burnedInput = document.getElementById('burnedCaloriesValue');
     const btn = document.getElementById('addBtn');
-    activityAcc = { trucht: 0, rower: 0, silownia: 0 };
     if (entry) {
         weightInput.value = entry.weight ?? '';
         caloriesInput.value = entry.calories ?? '';
-        burnedInput.value = entry.burnedCalories ?? '';
         btn.textContent = 'Zaktualizuj wpis';
-        activityAcc.trucht = entry.trucht_km || 0;
-        activityAcc.rower = entry.rower_km || 0;
-        activityAcc.silownia = entry.silownia_min || 0;
     } else {
         weightInput.value = '';
         caloriesInput.value = '';
-        burnedInput.value = '';
         btn.textContent = 'Dodaj do bazy';
     }
-    updateActivityDisplay();
+}
+
+// Formularz aktywności (zakładka 2) — niezależny od formularza wagi.
+function fillActivityFormForDate(date) {
+    const entry = weightEntries.find(e => e.date === date);
+    const burnedInput = document.getElementById('burnedCaloriesValue');
+    const truchtInput = document.getElementById('truchtValue');
+    const rowerInput = document.getElementById('rowerValue');
+    const silowniaInput = document.getElementById('silowniaValue');
+    const pullupsInput = document.getElementById('pullupsValue');
+    const pushupsInput = document.getElementById('pushupsValue');
+    const btn = document.getElementById('saveActivityBtn');
+    activityAcc = { trucht: 0, rower: 0, silownia: 0 };
+    if (entry) {
+        burnedInput.value = entry.burnedCalories ?? '';
+        truchtInput.value = entry.trucht_km ?? '';
+        rowerInput.value = entry.rower_km ?? '';
+        silowniaInput.value = entry.silownia_min ?? '';
+        pullupsInput.value = entry.podciagniecia ?? '';
+        pushupsInput.value = entry.pompki ?? '';
+        activityAcc.trucht = entry.trucht_km || 0;
+        activityAcc.rower = entry.rower_km || 0;
+        activityAcc.silownia = entry.silownia_min || 0;
+        if (btn) btn.textContent = 'Zaktualizuj aktywność';
+    } else {
+        burnedInput.value = '';
+        truchtInput.value = '';
+        rowerInput.value = '';
+        silowniaInput.value = '';
+        pullupsInput.value = '';
+        pushupsInput.value = '';
+        if (btn) btn.textContent = 'Zapisz aktywność';
+    }
 }
 
 function updateUI() {
@@ -41,6 +57,7 @@ function updateUI() {
     renderCaloriesVsWeight3();
     renderDashboard();
     fillFormForDate(document.getElementById('weightDate').value);
+    fillActivityFormForDate(document.getElementById('activityDate').value);
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
@@ -163,17 +180,21 @@ function renderActivityTable() {
     const totalTrucht = weightEntries.reduce((s, e) => s + (e.trucht_km || 0), 0);
     const totalRower = weightEntries.reduce((s, e) => s + (e.rower_km || 0), 0);
     const totalSilownia = weightEntries.reduce((s, e) => s + (e.silownia_min || 0), 0);
+    const totalPullups = weightEntries.reduce((s, e) => s + (e.podciagniecia || 0), 0);
+    const totalPushups = weightEntries.reduce((s, e) => s + (e.pompki || 0), 0);
 
     document.getElementById('sumTrucht').textContent = totalTrucht > 0 ? totalTrucht.toFixed(1) + ' km' : '-';
     document.getElementById('sumRower').textContent = totalRower > 0 ? totalRower.toFixed(1) + ' km' : '-';
     document.getElementById('sumSilownia').textContent = totalSilownia > 0 ? totalSilownia + ' min' : '-';
+    document.getElementById('sumPullups').textContent = totalPullups > 0 ? totalPullups + ' szt.' : '-';
+    document.getElementById('sumPushups').textContent = totalPushups > 0 ? totalPushups + ' szt.' : '-';
 
     if (!rows.length) {
-        body.innerHTML = `<tr><td colspan="5" class="py-8 text-center opacity-40 text-sm">Brak danych — dodaj wpisy w zakładce Waga</td></tr>`;
+        body.innerHTML = `<tr><td colspan="7" class="py-8 text-center opacity-40 text-sm">Brak danych — dodaj wpisy w zakładce Waga</td></tr>`;
         return;
     }
     body.innerHTML = rows.map(e => {
-        const hasActivity = e.trucht_km || e.rower_km || e.silownia_min;
+        const hasActivity = e.trucht_km || e.rower_km || e.silownia_min || e.podciagniecia || e.pompki;
         const rowClass = hasActivity
             ? 'border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors'
             : 'border-b border-slate-700/30 hover:bg-slate-700/10 transition-colors opacity-40';
@@ -183,6 +204,8 @@ function renderActivityTable() {
             <td class="py-3 px-4 font-bold text-blue-400">${e.trucht_km ? e.trucht_km + ' km' : '-'}</td>
             <td class="py-3 px-4 font-bold text-green-400">${e.rower_km ? e.rower_km + ' km' : '-'}</td>
             <td class="py-3 px-4 font-bold text-purple-400">${e.silownia_min ? e.silownia_min + ' min' : '-'}</td>
+            <td class="py-3 px-4 font-bold text-amber-400">${e.podciagniecia ? e.podciagniecia + ' szt.' : '-'}</td>
+            <td class="py-3 px-4 font-bold text-rose-400">${e.pompki ? e.pompki + ' szt.' : '-'}</td>
             <td class="py-3 px-4 font-bold text-orange-400">${e.burnedCalories ? e.burnedCalories + ' kcal' : '-'}</td>
         </tr>`;
     }).join('');

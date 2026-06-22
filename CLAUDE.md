@@ -16,7 +16,7 @@ Brak procesu budowania — `weight_tracker_cloud.html` otwiera się bezpośredni
 - `styles.css` — style.
 - `config.js` — klucze Firebase + `userId` (ignorowany przez git).
 - `js/state.js` — globalny stan (zmienne współdzielone); ładowany pierwszy.
-- `js/firebase.js` — `initFirebase`, `startSync`, `addEntry`, `deleteEntry`, `getUid`.
+- `js/firebase.js` — `initFirebase`, `startSync`, `addEntry`, `saveActivity`, `deleteEntry`, `getUid`.
 - `js/ui.js` — formularz, dashboard, tabele, `showToast`.
 - `js/charts.js` — wykresy Chart.js + `loadFullHistory`.
 - `js/activity.js` — kalkulator MET.
@@ -55,7 +55,9 @@ Skopiuj `config.example.js` do `config.js` i uzupełnij wartości z Firebase Con
 
 ### Zarządzanie wpisami
 
-- **`addEntry()`** — zapisuje dzienny pomiar: wagę, kalorie spożyte, kalorie spalone oraz poszczególne aktywności (`trucht_km`, `rower_km`, `silownia_min`). Używa `.set()` (nie `.add()`), żeby ponowne zapisanie tego samego dnia nadpisało istniejący wpis zamiast tworzyć duplikat. Po zapisie formularz nie jest czyszczony ręcznie — `onSnapshot` odpala się sam i `fillFormForDate` uzupełnia pola świeżymi danymi.
+- **`addEntry()`** (zakładka „Waga i kalorie") — zapisuje dzienny pomiar: wagę i kalorie spożyte. Używa `.set(..., { merge: true })` (nie `.add()`), żeby ponowne zapisanie tego samego dnia zaktualizowało istniejący wpis **bez kasowania aktywności** zapisanej osobno w zakładce 2. Po zapisie formularz nie jest czyszczony ręcznie — `onSnapshot` odpala się sam i `fillFormForDate` uzupełnia pola świeżymi danymi.
+
+- **`saveActivity()`** (zakładka „Aktywność") — zapisuje aktywność dnia: kalorie spalone, `trucht_km`, `rower_km`, `silownia_min` oraz liczbę podciągnięć (`podciagniecia`) i pompek (`pompki`). Również `.set(..., { merge: true })`, więc nie nadpisuje wagi/kalorii z zakładki 1 i można zapisać aktywność dla dnia bez wpisu wagi. Ma własny selektor daty (`#activityDate`), niezależny od daty pomiaru wagi. Kalorie spalone pochodzą **tylko** z truchtu/roweru/siłowni — podciągnięcia i pompki nie zwiększają `burnedCalories`.
 
 - **`deleteEntry(id)`** — usuwa wpis po dacie (`id` = data dokumentu). Wymaga potwierdzenia, bo operacja jest nieodwracalna.
 
@@ -63,13 +65,15 @@ Skopiuj `config.example.js` do `config.js` i uzupełnij wartości z Firebase Con
 
 - **`weightEntries`** — tablica w pamięci, posortowana rosnąco po dacie, przebudowywana przy każdym snapshocie. To jedyne źródło prawdy dla całego UI.
 
-- **`fillFormForDate(date)`** — wyszukuje wpis w `weightEntries` dla wybranej daty i uzupełnia pola formularza. Jeśli wpis istnieje, zmienia przycisk na "Zaktualizuj wpis"; jeśli nie — na "Dodaj do bazy". Resetuje też akumulator aktywności (`activityAcc`) do wartości z istniejącego wpisu.
+- **`fillFormForDate(date)`** (zakładka 1) — wyszukuje wpis w `weightEntries` dla wybranej daty i uzupełnia pola wagi/kalorii. Jeśli wpis istnieje, zmienia przycisk na "Zaktualizuj wpis"; jeśli nie — na "Dodaj do bazy".
 
-- **`activityAcc`** — obiekt `{ trucht, rower, silownia }` akumulujący aktywności dodane kalkulatorem w trakcie sesji edycji danego dnia. Przy zmianie daty jest resetowany. Przy zapisie jego wartości trafiają do Firestore jako oddzielne pola.
+- **`fillActivityFormForDate(date)`** (zakładka 2) — odpowiednik dla formularza aktywności: uzupełnia spalone kalorie, trucht/rower/siłownię, podciągnięcia i pompki oraz resetuje `activityAcc` do wartości z istniejącego wpisu dla daty z `#activityDate`. Przełącza etykietę przycisku między „Zapisz aktywność" a „Zaktualizuj aktywność". Oba `fill*` są wołane z `updateUI()` po każdym snapshocie.
+
+- **`activityAcc`** — obiekt `{ trucht, rower, silownia }` akumulujący aktywności dodane kalkulatorem w trakcie sesji edycji danego dnia (zakładka 2). Przy zmianie daty aktywności jest resetowany. Przy zapisie jego wartości trafiają do Firestore jako oddzielne pola. Podciągnięcia/pompki nie są w `activityAcc` — to bezpośrednie pola liczbowe czytane przy zapisie.
 
 ### Kalkulator aktywności
 
-- **`addActivityCalc()`** — przelicza dystans/czas aktywności na spalone kalorie metodą MET × waga × czas i dodaje wynik do pola "Spalone kalorie". Jednocześnie aktualizuje `activityAcc`, żeby przy zapisie Firestore wiedział ile km trucht/rower i ile minut siłowni było danego dnia.
+- **`recalcBurned()`** — czyta trzy pola liczbowe (`#truchtValue` km, `#rowerValue` km, `#silowniaValue` min), przelicza je metodą MET × waga × czas i wpisuje **sumę** do pola "Spalone kalorie" w zakładce 2. Wołana z `oninput` każdego z trzech pól, więc spalone kalorie aktualizują się na żywo podczas pisania. Jednocześnie ustawia `activityAcc` na bieżące wartości pól (nadpisuje, nie akumuluje), żeby przy zapisie Firestore wiedział ile km trucht/rower i ile minut siłowni było danego dnia. Obsługuje tylko trucht/rower/siłownię — podciągnięcia i pompki nie liczą kalorii.
 
 - **`calcBurnedCalories(activity, quantity)`** — silnik kalkulatora MET. Wartości MET: trucht = 8.7, rower = 7.5, siłownia = 4.0. Jako wagę bazową bierze ostatni wpis z `weightEntries` (domyślnie 117 kg jeśli brak danych) — dlatego szacunki są bardziej trafne w miarę uzupełniania danych.
 
@@ -79,7 +83,7 @@ Skopiuj `config.example.js` do `config.js` i uzupełnij wartości z Firebase Con
 
 - **`renderTable()`** — tabela historii wpisów posortowana od najnowszego. Pokazuje wagę, kalorie spożyte i spalone.
 
-- **`renderActivityTable()`** — tabela aktywności fizycznych w zakładce "Aktywność". Filtruje tylko dni z co najmniej jedną aktywnością, liczy sumy za 30 dni (trucht km, rower km, siłownia min) i wyświetla je w kafelkach podsumowania nad tabelą.
+- **`renderActivityTable()`** — tabela aktywności fizycznych w zakładce "Aktywność". Pokazuje wszystkie dni (dni bez aktywności są wyszarzone), liczy sumy za 30 dni (trucht km, rower km, siłownia min, podciągnięcia szt., pompki szt.) i wyświetla je w kafelkach podsumowania nad tabelą.
 
 
 - **`renderChart()`** — wykres słupkowo-liniowy (Chart.js) z podwójną osią Y: waga na lewej (`y`), kalorie netto i spalone na prawej (`y1`). Skala wagi jest przycinana do zakresu danych ±2 kg, żeby zmiany były czytelne.
@@ -124,9 +128,9 @@ Zakładka "Archiwum" pokazuje aktywność fizyczną zagregowaną per miesiąc (t
 
 ## Kluczowe zachowania — pułapki
 
-- `.set()` zamiast `.add()` to celowe — każda data jest unikalna, ponowny zapis tego samego dnia to aktualizacja, nie nowy dokument.
-- Formularz po zapisie uzupełnia się danymi z bazy (przez `onSnapshot → fillFormForDate`), a nie zostaje wyczyszczony — użytkownik widzi co faktycznie wylądowało w Firestore.
+- `.set(..., { merge: true })` zamiast `.add()` to celowe — każda data jest unikalna, ponowny zapis tego samego dnia to aktualizacja, nie nowy dokument. **Merge jest kluczowy**, bo waga/kalorie (zakładka 1, `addEntry`) i aktywność (zakładka 2, `saveActivity`) zapisują się do **tego samego dokumentu dnia osobnymi zapisami** — bez merge jeden nadpisałby pola drugiego.
+- Formularz po zapisie uzupełnia się danymi z bazy (przez `onSnapshot → fillFormForDate` / `fillActivityFormForDate`), a nie zostaje wyczyszczony — użytkownik widzi co faktycznie wylądowało w Firestore.
 - Dane są ograniczone do ostatnich 30 dni w `startSync()` — celowe ograniczenie, żeby nie ładować całej historii przy każdym otwarciu. Pełną historię ciągnie się osobno przez `loadFullHistory()` tylko na żądanie.
-- `activityAcc` musi być zsynchronizowany z datą formularza — przy każdej zmianie daty (`fillFormForDate`) jest resetowany do wartości z istniejącego wpisu.
+- `activityAcc` musi być zsynchronizowany z datą aktywności (`#activityDate`) — przy każdej zmianie daty (`fillActivityFormForDate`) jest resetowany do wartości z istniejącego wpisu.
 - Tożsamością danych w Firestore jest stały `userId` z `config.js`, a nie anonimowy `uid` — każdy dostęp do bazy używa wzorca `(typeof userId !== 'undefined') ? userId : currentUser.uid`. Zmiana `userId` = inny zestaw danych.
 - `renderCaloriesVsWeight()` używa średniej kroczącej 7 dni, więc pełne okno dla najwcześniejszego punktu wymaga danych z ~6 dni przed nim. Przy domyślnym 30-dniowym `weightEntries` pierwsze punkty są liczone z niepełnego okna — dopiero `loadFullHistory()` daje komplet.

@@ -17,9 +17,14 @@ function switchTab(n) {
 }
 
 window.onload = () => {
-    document.getElementById('weightDate').value = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('weightDate').value = today;
     document.getElementById('weightDate').addEventListener('change', (e) => {
         fillFormForDate(e.target.value);
+    });
+    document.getElementById('activityDate').value = today;
+    document.getElementById('activityDate').addEventListener('change', (e) => {
+        fillActivityFormForDate(e.target.value);
     });
     const savedTDEE = localStorage.getItem('tdee');
     if (savedTDEE) document.getElementById('tdeeValue').value = savedTDEE;

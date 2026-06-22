@@ -11,15 +11,16 @@ function calcBurnedCalories(activity, quantity) {
     return Math.round(MET * weight * hours);
 }
 
-window.addActivityCalc = () => {
-    const activity = document.getElementById('activitySelect').value;
-    const quantity = parseFloat(document.getElementById('activityQuantity').value);
-    if (isNaN(quantity) || quantity <= 0) return;
-    const burned = calcBurnedCalories(activity, quantity);
-    const current = parseInt(document.getElementById('burnedCaloriesValue').value) || 0;
-    document.getElementById('burnedCaloriesValue').value = current + burned;
-    document.getElementById('activityQuantity').value = '';
-    activityAcc[activity] = +(activityAcc[activity] + quantity).toFixed(2);
-    updateActivityDisplay();
-    showToast(`+${burned} kcal spalonych`);
+// Przelicza spalone kalorie z trzech pól (trucht/rower/siłownia) metodą MET
+// i wpisuje sumę do pola "Spalone kalorie". Wołane z oninput każdego pola.
+window.recalcBurned = () => {
+    const trucht = parseFloat(document.getElementById('truchtValue').value) || 0;
+    const rower = parseFloat(document.getElementById('rowerValue').value) || 0;
+    const silownia = parseFloat(document.getElementById('silowniaValue').value) || 0;
+    activityAcc = { trucht, rower, silownia };
+    const burned =
+        (trucht > 0 ? calcBurnedCalories('trucht', trucht) : 0) +
+        (rower > 0 ? calcBurnedCalories('rower', rower) : 0) +
+        (silownia > 0 ? calcBurnedCalories('silownia', silownia) : 0);
+    document.getElementById('burnedCaloriesValue').value = burned || '';
 };
