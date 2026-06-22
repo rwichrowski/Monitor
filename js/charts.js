@@ -188,7 +188,7 @@ function drawCaloriesVsWeight({ canvasId, warnId, windowDays, prevInstance }) {
                 {
                     label: 'Zmiana wagi (kg)',
                     data: weightChanges,
-                    borderColor: '#3b82f6',
+                    borderColor: '#b60bcc',
                     backgroundColor: 'rgba(59,130,246,0.1)',
                     yAxisID: 'y',
                     tension: 0.3,
@@ -198,7 +198,7 @@ function drawCaloriesVsWeight({ canvasId, warnId, windowDays, prevInstance }) {
                 {
                     label: 'Śr. spożyte kcal/dzień',
                     data: avgCalories,
-                    borderColor: '#f43f5e',
+                    borderColor: '#f2f54d',
                     backgroundColor: 'rgba(244,63,94,0.08)',
                     yAxisID: 'y1',
                     tension: 0.3,
