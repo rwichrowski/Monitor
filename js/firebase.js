@@ -89,10 +89,12 @@ window.saveActivity = async () => {
     const burnedInput = document.getElementById('burnedCaloriesValue');
     const pullupsInput = document.getElementById('pullupsValue');
     const pushupsInput = document.getElementById('pushupsValue');
+    const rollerAbInput = document.getElementById('rollerAbValue');
     const date = dateInput.value;
     const burnedCalories = parseInt(burnedInput.value);
     const pullups = parseInt(pullupsInput.value);
     const pushups = parseInt(pushupsInput.value);
+    const rollerAb = parseInt(rollerAbInput.value);
 
     if (!currentUser || !date) {
         showToast("Wybierz datę");
@@ -113,6 +115,7 @@ window.saveActivity = async () => {
                 silownia_min: activityAcc.silownia || null,
                 podciagniecia: isNaN(pullups) ? null : pullups,
                 pompki: isNaN(pushups) ? null : pushups,
+                roller_ab: isNaN(rollerAb) ? null : rollerAb,
                 timestamp: Date.now()
             }, { merge: true });
         showToast("Zapisano aktywność!");

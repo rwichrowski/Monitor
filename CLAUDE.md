@@ -57,7 +57,7 @@ Skopiuj `config.example.js` do `config.js` i uzupełnij wartości z Firebase Con
 
 - **`addEntry()`** (zakładka „Waga i kalorie") — zapisuje dzienny pomiar: wagę i kalorie spożyte. Używa `.set(..., { merge: true })` (nie `.add()`), żeby ponowne zapisanie tego samego dnia zaktualizowało istniejący wpis **bez kasowania aktywności** zapisanej osobno w zakładce 2. Po zapisie formularz nie jest czyszczony ręcznie — `onSnapshot` odpala się sam i `fillFormForDate` uzupełnia pola świeżymi danymi.
 
-- **`saveActivity()`** (zakładka „Aktywność") — zapisuje aktywność dnia: kalorie spalone, `trucht_km`, `rower_km`, `silownia_min` oraz liczbę podciągnięć (`podciagniecia`) i pompek (`pompki`). Również `.set(..., { merge: true })`, więc nie nadpisuje wagi/kalorii z zakładki 1 i można zapisać aktywność dla dnia bez wpisu wagi. Ma własny selektor daty (`#activityDate`), niezależny od daty pomiaru wagi. Kalorie spalone pochodzą **tylko** z truchtu/roweru/siłowni — podciągnięcia i pompki nie zwiększają `burnedCalories`.
+- **`saveActivity()`** (zakładka „Aktywność") — zapisuje aktywność dnia: kalorie spalone, `trucht_km`, `rower_km`, `silownia_min` oraz liczbę podciągnięć (`podciagniecia`), pompek (`pompki`) i Roller AB (`roller_ab`). Również `.set(..., { merge: true })`, więc nie nadpisuje wagi/kalorii z zakładki 1 i można zapisać aktywność dla dnia bez wpisu wagi. Ma własny selektor daty (`#activityDate`), niezależny od daty pomiaru wagi. Kalorie spalone pochodzą **tylko** z truchtu/roweru/siłowni — podciągnięcia, pompki i Roller AB nie zwiększają `burnedCalories`. Pola powtórzeniowe mają `step` doliczający pełną serię strzałką w górę (Pompki 25, Podciągnięcia/Roller AB 5, Siłownia 15 min).
 
 - **`deleteEntry(id)`** — usuwa wpis po dacie (`id` = data dokumentu). Wymaga potwierdzenia, bo operacja jest nieodwracalna.
 
@@ -67,7 +67,7 @@ Skopiuj `config.example.js` do `config.js` i uzupełnij wartości z Firebase Con
 
 - **`fillFormForDate(date)`** (zakładka 1) — wyszukuje wpis w `weightEntries` dla wybranej daty i uzupełnia pola wagi/kalorii. Jeśli wpis istnieje, zmienia przycisk na "Zaktualizuj wpis"; jeśli nie — na "Dodaj do bazy".
 
-- **`fillActivityFormForDate(date)`** (zakładka 2) — odpowiednik dla formularza aktywności: uzupełnia spalone kalorie, trucht/rower/siłownię, podciągnięcia i pompki oraz resetuje `activityAcc` do wartości z istniejącego wpisu dla daty z `#activityDate`. Przełącza etykietę przycisku między „Zapisz aktywność" a „Zaktualizuj aktywność". Oba `fill*` są wołane z `updateUI()` po każdym snapshocie.
+- **`fillActivityFormForDate(date)`** (zakładka 2) — odpowiednik dla formularza aktywności: uzupełnia spalone kalorie, trucht/rower/siłownię, podciągnięcia, pompki i Roller AB oraz resetuje `activityAcc` do wartości z istniejącego wpisu dla daty z `#activityDate`. Przełącza etykietę przycisku między „Zapisz aktywność" a „Zaktualizuj aktywność". Oba `fill*` są wołane z `updateUI()` po każdym snapshocie.
 
 - **`activityAcc`** — obiekt `{ trucht, rower, silownia }` akumulujący aktywności dodane kalkulatorem w trakcie sesji edycji danego dnia (zakładka 2). Przy zmianie daty aktywności jest resetowany. Przy zapisie jego wartości trafiają do Firestore jako oddzielne pola. Podciągnięcia/pompki nie są w `activityAcc` — to bezpośrednie pola liczbowe czytane przy zapisie.
 

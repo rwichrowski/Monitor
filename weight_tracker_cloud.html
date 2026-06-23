@@ -187,68 +187,104 @@
         <!-- Tab 2: Aktywność -->
         <div id="tab2" class="hidden space-y-6">
             <!-- Dodawanie aktywności -->
-            <div class="card space-y-4">
-                <h2 class="font-semibold text-lg">Dodaj aktywność</h2>
+            <div class="card space-y-5">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center shrink-0">
+                        <i data-lucide="dumbbell" class="w-5 h-5 text-blue-400"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-semibold text-lg leading-tight">Dodaj aktywność</h2>
+                        <p class="text-xs opacity-40">Strzałka w górę dolicza pełną serię</p>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="flex flex-col gap-1">
-                        <label class="text-[10px] uppercase font-bold opacity-50">Data</label>
+                        <label class="text-[10px] uppercase font-bold opacity-50 flex items-center gap-1.5">
+                            <i data-lucide="calendar" class="w-3.5 h-3.5"></i> Data
+                        </label>
                         <input type="date" id="activityDate">
                     </div>
                     <div class="flex flex-col gap-1">
-                        <label class="text-[10px] uppercase font-bold opacity-50">Spalone kalorie (kcal)</label>
+                        <label class="text-[10px] uppercase font-bold opacity-50 flex items-center gap-1.5">
+                            <i data-lucide="flame" class="w-3.5 h-3.5 text-orange-400"></i> Spalone kalorie (kcal)
+                        </label>
                         <input type="number" id="burnedCaloriesValue" step="1" placeholder="0">
                     </div>
                 </div>
-                <div class="grid grid-cols-3 gap-4">
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] uppercase font-bold opacity-50">Trucht (km)</label>
-                        <input type="number" id="truchtValue" step="0.5" min="0" placeholder="0" oninput="recalcBurned()">
-                    </div>
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] uppercase font-bold opacity-50">Rower (km)</label>
-                        <input type="number" id="rowerValue" step="0.5" min="0" placeholder="0" oninput="recalcBurned()">
-                    </div>
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] uppercase font-bold opacity-50">Siłownia (min)</label>
-                        <input type="number" id="silowniaValue" step="1" min="0" placeholder="0" oninput="recalcBurned()">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] uppercase font-bold opacity-50">Podciągnięcia (szt.)</label>
-                        <input type="number" id="pullupsValue" step="1" min="0" placeholder="0">
-                    </div>
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] uppercase font-bold opacity-50">Pompki (szt.)</label>
-                        <input type="number" id="pushupsValue" step="1" min="0" placeholder="0">
+
+                <div>
+                    <p class="section-label"><i data-lucide="heart-pulse" class="w-4 h-4 text-blue-400"></i> Cardio</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="activity-tile">
+                            <label><i data-lucide="footprints" class="w-4 h-4 text-blue-400"></i> Trucht (km)</label>
+                            <input type="number" id="truchtValue" step="0.5" min="0" placeholder="0" oninput="recalcBurned()">
+                        </div>
+                        <div class="activity-tile">
+                            <label><i data-lucide="bike" class="w-4 h-4 text-green-400"></i> Rower (km)</label>
+                            <input type="number" id="rowerValue" step="0.5" min="0" placeholder="0" oninput="recalcBurned()">
+                        </div>
+                        <div class="activity-tile">
+                            <label><i data-lucide="timer" class="w-4 h-4 text-purple-400"></i> Siłownia (min)</label>
+                            <input type="number" id="silowniaValue" step="15" min="0" placeholder="0" oninput="recalcBurned()">
+                        </div>
                     </div>
                 </div>
+
+                <div>
+                    <p class="section-label"><i data-lucide="dumbbell" class="w-4 h-4 text-rose-400"></i> Siła · powtórzenia</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="activity-tile">
+                            <label><i data-lucide="chevrons-up" class="w-4 h-4 text-amber-400"></i> Podciągnięcia (szt.)</label>
+                            <input type="number" id="pullupsValue" step="5" min="0" placeholder="0">
+                        </div>
+                        <div class="activity-tile">
+                            <label><i data-lucide="chevrons-down" class="w-4 h-4 text-rose-400"></i> Pompki (szt.)</label>
+                            <input type="number" id="pushupsValue" step="25" min="0" placeholder="0">
+                        </div>
+                        <div class="activity-tile">
+                            <label><i data-lucide="circle-dot" class="w-4 h-4 text-cyan-400"></i> Roller AB (szt.)</label>
+                            <input type="number" id="rollerAbValue" step="5" min="0" placeholder="0">
+                        </div>
+                    </div>
+                </div>
+
                 <button id="saveActivityBtn" onclick="saveActivity()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-all active:scale-95 shadow-lg shadow-blue-500/20">
                     Zapisz aktywność
                 </button>
             </div>
 
             <!-- Podsumowanie -->
-            <div class="grid grid-cols-3 md:grid-cols-5 gap-4">
+            <div class="grid grid-cols-3 md:grid-cols-6 gap-4">
                 <div class="card text-center space-y-1">
+                    <i data-lucide="footprints" class="w-4 h-4 mx-auto text-blue-400 opacity-70"></i>
                     <p class="text-[10px] uppercase font-bold opacity-40">Trucht (30 dni)</p>
                     <p id="sumTrucht" class="text-2xl font-bold text-blue-400">-</p>
                 </div>
                 <div class="card text-center space-y-1">
+                    <i data-lucide="bike" class="w-4 h-4 mx-auto text-green-400 opacity-70"></i>
                     <p class="text-[10px] uppercase font-bold opacity-40">Rower (30 dni)</p>
                     <p id="sumRower" class="text-2xl font-bold text-green-400">-</p>
                 </div>
                 <div class="card text-center space-y-1">
+                    <i data-lucide="timer" class="w-4 h-4 mx-auto text-purple-400 opacity-70"></i>
                     <p class="text-[10px] uppercase font-bold opacity-40">Siłownia (30 dni)</p>
                     <p id="sumSilownia" class="text-2xl font-bold text-purple-400">-</p>
                 </div>
                 <div class="card text-center space-y-1">
+                    <i data-lucide="chevrons-up" class="w-4 h-4 mx-auto text-amber-400 opacity-70"></i>
                     <p class="text-[10px] uppercase font-bold opacity-40">Podciągnięcia (30 dni)</p>
                     <p id="sumPullups" class="text-2xl font-bold text-amber-400">-</p>
                 </div>
                 <div class="card text-center space-y-1">
+                    <i data-lucide="chevrons-down" class="w-4 h-4 mx-auto text-rose-400 opacity-70"></i>
                     <p class="text-[10px] uppercase font-bold opacity-40">Pompki (30 dni)</p>
                     <p id="sumPushups" class="text-2xl font-bold text-rose-400">-</p>
+                </div>
+                <div class="card text-center space-y-1">
+                    <i data-lucide="circle-dot" class="w-4 h-4 mx-auto text-cyan-400 opacity-70"></i>
+                    <p class="text-[10px] uppercase font-bold opacity-40">Roller AB (30 dni)</p>
+                    <p id="sumRollerAb" class="text-2xl font-bold text-cyan-400">-</p>
                 </div>
             </div>
 
@@ -265,6 +301,7 @@
                                 <th class="py-2 px-4 text-left">Siłownia</th>
                                 <th class="py-2 px-4 text-left">Podciągnięcia</th>
                                 <th class="py-2 px-4 text-left">Pompki</th>
+                                <th class="py-2 px-4 text-left">Roller AB</th>
                                 <th class="py-2 px-4 text-left">Spalone</th>
                             </tr>
                         </thead>
